@@ -176,6 +176,10 @@ class ConfigManager:
         config.database.user = os.getenv("DB_USER", config.database.user)
         config.database.password = os.getenv("DB_PASSWORD", config.database.password)
         config.database.driver = os.getenv("DB_DRIVER", config.database.driver)
+            # Support DATABASE_URL override
+            db_url = os.getenv("DATABASE_URL")
+            if db_url:
+                config.database.url = db_url
         
         # Redis settings
         config.redis.host = os.getenv("REDIS_HOST", config.redis.host)
@@ -223,7 +227,10 @@ class ConfigManager:
         # Database
         if "database" in data:
             db_data = data["database"]
-            config.database = DatabaseConfig(**db_data)
+                config.database = DatabaseConfig(**{k: v for k, v in db_data.items() if k != "url"})
+                # Support url override from YAML
+                if "url" in db_data:
+                    config.database.url = db_data["url"]
         
         # Redis
         if "redis" in data:
