@@ -1,0 +1,16 @@
+# GitHub Sponsors and Funding Configuration
+# Documentation: https://help.github.com/articles/displaying-a-sponsor-button-in-your-repository
+
+# github: [username]  # Replace with your GitHub Sponsors username
+# patreon: username    # Replace with your Patreon username
+# open_collective: username  # Replace with your Open Collective username
+# ko_fi: username      # Replace with your Ko-fi username
+# tidelift: pypi/package-name  # Replace with your Tidelift platform name/package
+# community_bridge: project-name  # Replace with your LFX Crowdfunding project name
+# liberapay: username  # Replace with your Liberapay username
+# issuehunt: username  # Replace with your IssueHunt username
+# otechie: username    # Replace with your Otechie username
+# lfx_crowdfunding: project-name # Replace with your LFX Crowdfunding project name
+# custom: ['https://www.paypal.me/username', 'https://buy-me-a-coffee.com/username']
+
+# Uncomment and configure the funding platforms you want to use

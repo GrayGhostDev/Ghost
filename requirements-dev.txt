@@ -1,0 +1,29 @@
+# Development-only requirements
+# Include base requirements
+-r requirements.txt
+
+# Additional development tools
+ipython==8.27.0
+jupyter==1.1.1
+jupyterlab==4.2.5
+notebook==7.2.2
+
+# Code quality and formatting
+autopep8==2.3.1
+isort==5.13.2
+pylint==3.3.1
+bandit==1.7.10
+
+# Documentation
+sphinx==8.0.2
+mkdocs==1.6.1
+mkdocs-material==9.5.36
+
+# Debugging and profiling
+# pdbpp==0.10.3  # Removed due to compatibility issues with Python 3.13 and fancycompleter
+memory-profiler==0.61.0
+line-profiler==4.1.3
+
+# Environment management helpers
+pip-tools==7.4.1
+pipdeptree==2.23.4

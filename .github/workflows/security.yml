@@ -1,0 +1,95 @@
+name: Security Scan
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit[toml] safety semgrep
+
+    - name: Run Bandit Security Scan
+      run: |
+        bandit -r src/ -f json -o bandit-report.json || true
+        bandit -r src/ -f txt
+
+    - name: Run Safety Check
+      run: |
+        safety check --json --output safety-report.json || true
+        safety check
+
+    - name: Run Semgrep Security Scan
+      run: |
+        semgrep --config=auto src/ --json --output=semgrep-report.json || true
+        semgrep --config=auto src/
+
+    - name: Upload Security Reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+          semgrep-report.json
+
+    - name: Comment PR with Security Summary
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let comment = '## 🔒 Security Scan Results\n\n';
+          
+          try {
+            const banditReport = JSON.parse(fs.readFileSync('bandit-report.json', 'utf8'));
+            comment += `### Bandit Security Issues: ${banditReport.results.length}\n`;
+            if (banditReport.results.length > 0) {
+              comment += '⚠️ Security issues found by Bandit\n\n';
+            } else {
+              comment += '✅ No security issues found by Bandit\n\n';
+            }
+          } catch (e) {
+            comment += '### Bandit: Scan completed\n\n';
+          }
+          
+          try {
+            const safetyReport = JSON.parse(fs.readFileSync('safety-report.json', 'utf8'));
+            comment += `### Safety Vulnerabilities: ${safetyReport.length}\n`;
+            if (safetyReport.length > 0) {
+              comment += '⚠️ Vulnerable dependencies found\n\n';
+            } else {
+              comment += '✅ No vulnerable dependencies found\n\n';
+            }
+          } catch (e) {
+            comment += '### Safety: Scan completed\n\n';
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

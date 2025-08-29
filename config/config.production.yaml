@@ -1,0 +1,280 @@
+# ============================================================================
+# GHOST BACKEND FRAMEWORK - YAML CONFIGURATION TEMPLATE
+# ============================================================================
+# This file provides structured configuration for complex setups
+# Use this for production environments or when you need hierarchical config
+
+# Environment and basic settings
+environment: "production"  # development, production, testing
+debug: false
+project_name: "MyApp Backend"
+version: "1.0.0"
+
+# Database configuration
+database:
+  host: "localhost"
+  port: 5432
+  name: "ghost"
+  user: "grayghostdataconsultants" 
+  password: ""
+  driver: "postgresql"
+  pool_size: 20
+  max_overflow: 30
+  echo: false
+  
+  # Connection options
+  connect_args:
+    sslmode: "prefer"  # For production PostgreSQL
+    connect_timeout: 30
+  
+  # For read replicas (advanced)
+  replicas:
+    - host: "replica1.example.com"
+      port: 5432
+    - host: "replica2.example.com" 
+      port: 5432
+
+# Redis configuration  
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: ""
+  decode_responses: true
+  max_connections: 50
+  
+  # Redis Sentinel for HA (advanced)
+  # sentinel:
+  #   service_name: "mymaster"
+  #   sentinels:
+  #     - host: "sentinel1.example.com"
+  #       port: 26379
+  #     - host: "sentinel2.example.com"
+  #       port: 26379
+
+# MongoDB configuration (if using)
+mongodb:
+  host: "localhost"
+  port: 27017
+  database: "myapp_mongo"
+  username: ""
+  password: ""
+  
+# API server configuration
+api:
+  host: "0.0.0.0"
+  port: 8000
+  title: "MyApp API"
+  description: "Comprehensive backend API"
+  version: "1.0.0"
+  debug: false
+  
+  # Security settings
+  api_key: "${API_KEY}"
+  jwt_secret: "${JWT_SECRET}"
+  jwt_algorithm: "HS256"
+  jwt_expiry_hours: 24
+  
+  # CORS configuration
+  cors:
+    origins: 
+      - "https://yourdomain.com"
+      - "https://www.yourdomain.com"
+      - "http://localhost:3000"  # For development frontend
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    headers: ["*"]
+    allow_credentials: true
+  
+  # Rate limiting
+  rate_limit: "100/minute"
+  burst_limit: "200/minute"
+  
+  # Request/Response settings
+  max_request_size: 10485760  # 10MB
+  timeout: 30
+
+# Authentication configuration
+auth:
+  jwt_secret: "${JWT_SECRET}"
+  jwt_algorithm: "HS256"
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 7
+  
+  # Password requirements
+  password:
+    min_length: 8
+    require_uppercase: true
+    require_lowercase: true
+    require_numbers: true
+    require_special: true
+  
+  # OAuth providers (optional)
+  oauth:
+    google:
+      client_id: "${GOOGLE_OAUTH_CLIENT_ID}"
+      client_secret: "${GOOGLE_OAUTH_CLIENT_SECRET}"
+    github:
+      client_id: "${GITHUB_OAUTH_CLIENT_ID}"
+      client_secret: "${GITHUB_OAUTH_CLIENT_SECRET}"
+
+# Logging configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: "logs/app.log"
+  max_size: "10MB"
+  backup_count: 5
+  format: "json"  # json or text
+  
+  # Console logging
+  console:
+    enabled: true
+    level: "INFO"
+    colorize: true
+  
+  # File logging
+  file_logging:
+    enabled: true
+    rotation: "1 day"
+    retention: "30 days"
+  
+  # Structured logging fields
+  extra_fields:
+    service: "myapp-backend"
+    version: "1.0.0"
+
+# External API integrations
+external_apis:
+  # AI Services
+  openai:
+    api_key: "${OPENAI_API_KEY}"
+    model: "gpt-4"
+    max_tokens: 1000
+    temperature: 0.7
+  
+  anthropic:
+    api_key: "${ANTHROPIC_ADMIN_API_KEY}"
+    model: "claude-3-sonnet-20240229"
+    max_tokens: 1000
+  
+  # Version Control
+  github:
+    token: "${GITHUB_PAT}"
+    org: "your-organization"
+  
+  # Email Services
+  sendgrid:
+    api_key: "${SENDGRID_API_KEY}"
+    from_email: "noreply@yourdomain.com"
+    templates:
+      welcome: "d-welcome-template-id"
+      reset_password: "d-reset-template-id"
+  
+  # Cloud Services
+  aws:
+    access_key_id: "${AWS_ACCESS_KEY_ID}"
+    secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+    region: "us-east-1"
+    s3_bucket: "your-app-bucket"
+  
+  # Monitoring
+  sentry:
+    dsn: "${SENTRY_DSN}"
+    environment: "production"
+    traces_sample_rate: 0.1
+
+# File storage configuration
+storage:
+  # Local storage
+  local:
+    upload_dir: "uploads/"
+    max_file_size: "10MB"
+    allowed_extensions: [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"]
+  
+  # S3 storage
+  s3:
+    bucket: "your-app-files"
+    region: "us-east-1"
+    public_read: false
+    presigned_url_expiry: 3600  # 1 hour
+
+# Background tasks configuration
+tasks:
+  # Celery configuration
+  celery:
+    broker_url: "redis://localhost:6379/1"
+    result_backend: "redis://localhost:6379/1"
+    task_serializer: "json"
+    result_serializer: "json"
+    accept_content: ["json"]
+    
+  # Scheduled tasks
+  beat_schedule:
+    cleanup_expired_tokens:
+      task: "auth.cleanup_expired_tokens"
+      schedule: 3600.0  # Every hour
+    generate_reports:
+      task: "reports.generate_daily_report" 
+      schedule: 86400.0  # Every day
+
+# Security configuration
+security:
+  # HTTPS enforcement
+  force_https: true
+  hsts_max_age: 31536000  # 1 year
+  
+  # Request security
+  max_request_size: 10485760  # 10MB
+  request_timeout: 30
+  
+  # Content Security Policy
+  csp:
+    default_src: ["'self'"]
+    script_src: ["'self'", "'unsafe-inline'"]
+    style_src: ["'self'", "'unsafe-inline'"]
+
+# Health checks and monitoring
+health:
+  checks:
+    database: true
+    redis: true
+    external_apis: false  # Set true if critical
+  timeout: 5
+  interval: 30
+
+# Performance settings
+performance:
+  # Connection pooling
+  db_pool_size: 20
+  db_max_overflow: 30
+  redis_max_connections: 50
+  
+  # Caching
+  cache:
+    default_ttl: 300  # 5 minutes
+    long_ttl: 3600    # 1 hour
+    short_ttl: 60     # 1 minute
+  
+  # Request processing
+  worker_processes: 4
+  worker_connections: 1000
+  keepalive_timeout: 75
+
+# Development specific settings
+development:
+  auto_reload: true
+  sql_echo: false
+  debug_toolbar: false
+  profiling: false
+
+# Testing configuration  
+testing:
+  database:
+    name: "test_myapp_db"
+    echo: false
+  
+  redis:
+    db: 1
+  
+  # Fast test settings
+  jwt_expiry_hours: 1
+  rate_limit: "1000/minute"

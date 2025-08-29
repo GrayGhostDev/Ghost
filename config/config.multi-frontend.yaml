@@ -1,0 +1,329 @@
+# ============================================================================
+# GHOST BACKEND FRAMEWORK - MULTI-FRONTEND DEVELOPMENT CONFIGURATION
+# ============================================================================
+# This file configures the backend to work with multiple frontend applications
+# and development environments
+
+# Backend server configuration
+backend:
+  name: "Ghost Backend Framework"
+  version: "1.0.0"
+  description: "Centralized backend serving multiple frontend applications"
+  
+  # Main API server
+  api:
+    host: "0.0.0.0"
+    port: 8888
+    base_path: "/api/v1"
+    docs_url: "/docs"
+    redoc_url: "/redoc"
+    openapi_url: "/openapi.json"
+    
+  # WebSocket server (for real-time features)
+  websocket:
+    enabled: true
+    port: 8889
+    path: "/ws"
+    
+  # Health checks and monitoring
+  health:
+    endpoint: "/health"
+    database_check: true
+    redis_check: true
+    external_apis_check: false
+
+# Frontend applications configuration
+frontends:
+  # React.js applications
+  react:
+    - name: "admin-dashboard"
+      description: "Administrative interface"
+      port: 3000
+      build_dir: "build"
+      env_file: ".env.local"
+      cors_origin: "http://localhost:3000"
+      api_prefix: "/admin"
+      auth_required: true
+      routes:
+        - "/admin/*"
+        - "/dashboard/*"
+      
+    - name: "user-portal"
+      description: "User-facing portal"
+      port: 3001
+      build_dir: "dist"
+      env_file: ".env"
+      cors_origin: "http://localhost:3001"
+      api_prefix: "/portal"
+      auth_required: true
+      routes:
+        - "/portal/*"
+        - "/user/*"
+  
+  # Vue.js applications
+  vue:
+    - name: "marketing-site"
+      description: "Marketing and landing pages"
+      port: 3002
+      build_dir: "dist"
+      env_file: ".env.local"
+      cors_origin: "http://localhost:3002"
+      api_prefix: "/marketing"
+      auth_required: false
+      routes:
+        - "/*"
+        - "/marketing/*"
+  
+  # Next.js applications
+  nextjs:
+    - name: "e-commerce"
+      description: "E-commerce storefront"
+      port: 3003
+      build_dir: ".next"
+      env_file: ".env.local"
+      cors_origin: "http://localhost:3003"
+      api_prefix: "/shop"
+      auth_required: false
+      routes:
+        - "/shop/*"
+        - "/products/*"
+        - "/cart/*"
+  
+  # Mobile applications (React Native / Expo)
+  mobile:
+    - name: "mobile-app"
+      description: "React Native mobile app"
+      port: 19006  # Expo web port
+      cors_origin: "http://localhost:19006"
+      api_prefix: "/mobile"
+      auth_required: true
+      expo_config: "expo-config.json"
+
+# Development environment configuration
+development:
+  # Hot reload and file watching
+  hot_reload: true
+  auto_restart: true
+  
+  # Watch directories for changes
+  watch_dirs:
+    - "src/"
+    - "config/"
+    - "frontends/"
+  
+  # File extensions to watch
+  watch_extensions: [".py", ".yaml", ".json", ".js", ".ts", ".jsx", ".tsx", ".vue"]
+  
+  # Frontend detection and auto-setup
+  auto_detect_frontends: true
+  frontend_scan_dirs:
+    - "../"  # Parent directory
+    - "../../" # Grandparent directory
+    - "./frontends/" # Local frontends directory
+  
+  # Port management
+  port_range:
+    start: 3000
+    end: 3999
+  auto_assign_ports: true
+
+# CORS configuration for multi-frontend support
+cors:
+  allow_credentials: true
+  allow_methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+  allow_headers: ["*"]
+  expose_headers: ["*"]
+  max_age: 600
+  
+  # Dynamic origins (will be populated by frontend detection)
+  allowed_origins: []
+  
+  # Development patterns (for local development)
+  development_patterns:
+    - "http://localhost:*"
+    - "http://127.0.0.1:*"
+    - "http://0.0.0.0:*"
+
+# API routing and frontend-specific endpoints
+routing:
+  # Route prefixes for different frontends
+  prefixes:
+    admin: "/api/v1/admin"
+    portal: "/api/v1/portal"
+    marketing: "/api/v1/marketing"
+    shop: "/api/v1/shop"
+    mobile: "/api/v1/mobile"
+  
+  # Shared endpoints (available to all frontends)
+  shared_endpoints:
+    - "/api/v1/auth/*"
+    - "/api/v1/user/*"
+    - "/api/v1/health"
+    - "/api/v1/utils/*"
+
+# Authentication and authorization per frontend
+auth:
+  # JWT configuration
+  jwt_secret: "${JWT_SECRET}"
+  jwt_algorithm: "HS256"
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 7
+  
+  # Frontend-specific auth rules
+  frontend_auth:
+    admin:
+      required: true
+      roles: ["admin", "superuser"]
+      permissions: ["read", "write", "delete"]
+      session_timeout: 60  # minutes
+    
+    portal:
+      required: true
+      roles: ["user", "premium"]
+      permissions: ["read", "write"]
+      session_timeout: 120
+    
+    marketing:
+      required: false
+      roles: []
+      permissions: ["read"]
+      session_timeout: 0
+    
+    shop:
+      required: false  # Guest checkout allowed
+      roles: ["user", "customer"]
+      permissions: ["read", "write"]
+      session_timeout: 240
+    
+    mobile:
+      required: true
+      roles: ["user", "mobile"]
+      permissions: ["read", "write"]
+      session_timeout: 720  # 12 hours for mobile
+
+# Database configuration per frontend
+database:
+  # Main database (shared)
+  primary:
+    host: "localhost"
+    port: 5432
+    name: "ghost"
+    user: "grayghostdataconsultants"
+    password: ""
+    driver: "postgresql"
+  
+  # Frontend-specific tables/schemas
+  schemas:
+    admin: "admin_schema"
+    portal: "user_schema"
+    marketing: "public"
+    shop: "ecommerce_schema"
+    mobile: "mobile_schema"
+
+# Real-time features (WebSocket configuration)
+realtime:
+  enabled: true
+  
+  # Frontend-specific WebSocket channels
+  channels:
+    admin:
+      - "admin.notifications"
+      - "admin.system_alerts"
+      - "admin.user_activity"
+    
+    portal:
+      - "user.notifications"
+      - "user.messages"
+      - "user.updates"
+    
+    shop:
+      - "shop.inventory"
+      - "shop.orders"
+      - "shop.promotions"
+    
+    mobile:
+      - "mobile.notifications"
+      - "mobile.location"
+      - "mobile.sync"
+
+# File uploads and static assets
+storage:
+  # Upload directories per frontend
+  uploads:
+    admin: "uploads/admin/"
+    portal: "uploads/users/"
+    marketing: "uploads/marketing/"
+    shop: "uploads/products/"
+    mobile: "uploads/mobile/"
+  
+  # Static file serving
+  static_files:
+    enabled: true
+    directory: "static/"
+    url_path: "/static"
+  
+  # CDN configuration (optional)
+  cdn:
+    enabled: false
+    base_url: "https://cdn.yourdomain.com"
+
+# Logging per frontend
+logging:
+  level: "INFO"
+  format: "json"
+  
+  # Frontend-specific log files
+  files:
+    admin: "logs/admin.log"
+    portal: "logs/portal.log"
+    marketing: "logs/marketing.log"
+    shop: "logs/shop.log"
+    mobile: "logs/mobile.log"
+    backend: "logs/backend.log"
+
+# Performance and caching
+performance:
+  # Cache configuration per frontend
+  cache:
+    admin:
+      ttl: 300  # 5 minutes
+      max_size: 1000
+    
+    portal:
+      ttl: 600  # 10 minutes
+      max_size: 5000
+    
+    marketing:
+      ttl: 3600  # 1 hour
+      max_size: 10000
+    
+    shop:
+      ttl: 900  # 15 minutes
+      max_size: 5000
+  
+  # Rate limiting per frontend
+  rate_limits:
+    admin: "200/minute"
+    portal: "100/minute"
+    marketing: "50/minute"
+    shop: "150/minute"
+    mobile: "300/minute"
+
+# Environment-specific overrides
+environments:
+  development:
+    debug: true
+    hot_reload: true
+    cors_origins: ["*"]
+    rate_limits_enabled: false
+  
+  staging:
+    debug: false
+    cors_origins: ["https://staging.yourdomain.com"]
+    rate_limits_enabled: true
+  
+  production:
+    debug: false
+    cors_origins: ["https://yourdomain.com"]
+    rate_limits_enabled: true
+    force_https: true

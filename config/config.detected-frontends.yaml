@@ -1,0 +1,54 @@
+backend:
+  api:
+    base_path: /api/v1
+    host: 0.0.0.0
+    port: 8888
+  name: Ghost Backend Framework
+  version: 1.0.0
+cors:
+  allow_credentials: true
+  allowed_origins:
+  - http://localhost:3000
+  - http://localhost:3001
+  - http://localhost:3002
+frontends:
+  angular:
+  - api_prefix: /gemini_cli
+    auth_required: true
+    build_dir: build
+    cors_origin: http://localhost:3001
+    description: Gemini CLI tool for development workspace
+    detected_features:
+    - testing
+    name: gemini-cli
+    path: /Users/grayghostdataconsultants/Development/tools/gemini-cli
+    port: 3001
+  react:
+  - api_prefix: /@grayghostdata/frontend_template
+    auth_required: true
+    build_dir: build
+    cors_origin: http://localhost:3000
+    description: Shared frontend dependencies and configuration for Gray Ghost Data
+      Consultants projects
+    detected_features:
+    - state_management
+    - testing
+    name: '@grayghostdata/frontend-template'
+    path: /Users/grayghostdataconsultants/Development/shared-frontend-dependencies
+    port: 3000
+  - api_prefix: /@grayghostdata/frontend_template
+    auth_required: true
+    build_dir: build
+    cors_origin: http://localhost:3002
+    description: Shared frontend dependencies and configuration for Gray Ghost Data
+      Consultants projects
+    detected_features:
+    - state_management
+    - testing
+    name: '@grayghostdata/frontend-template'
+    path: /Users/grayghostdataconsultants/Development/shared-frontend-dependencies
+    port: 3002
+routing:
+  prefixes:
+    '@grayghostdata/frontend_template': /@grayghostdata/frontend_template
+    gemini_cli: /gemini_cli

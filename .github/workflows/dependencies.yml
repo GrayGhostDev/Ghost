@@ -1,0 +1,86 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    # Run weekly on Mondays at 10 AM UTC
+    - cron: '0 10 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install pip-tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-tools
+
+    - name: Update requirements
+      run: |
+        # Update main requirements
+        if [ -f requirements.in ]; then
+          pip-compile requirements.in --upgrade
+        else
+          pip-compile requirements.txt --upgrade --output-file requirements-updated.txt
+        fi
+        
+        # Update dev requirements
+        if [ -f requirements-dev.in ]; then
+          pip-compile requirements-dev.in --upgrade
+        else
+          pip-compile requirements-dev.txt --upgrade --output-file requirements-dev-updated.txt
+        fi
+
+    - name: Check for security updates
+      run: |
+        pip install safety
+        safety check --json --output safety-report.json || true
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: |
+          chore: update dependencies
+          
+          - Updated Python dependencies to latest versions
+          - Automated dependency update via GitHub Actions
+        title: 'chore: Weekly dependency updates'
+        body: |
+          ## 📦 Automated Dependency Update
+          
+          This PR updates Python dependencies to their latest versions.
+          
+          ### 🔄 Changes
+          - Updated requirements.txt with latest package versions
+          - Updated requirements-dev.txt with latest development packages
+          - Security scan results included
+          
+          ### 🔒 Security
+          Security scan results are attached. Please review for any vulnerabilities.
+          
+          ### ✅ Testing
+          Please ensure all tests pass before merging.
+          
+          ---
+          *This PR was created automatically by GitHub Actions*
+        branch: chore/dependency-updates
+        delete-branch: true
+        labels: |
+          dependencies
+          automated
+          chore
