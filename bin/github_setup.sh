@@ -109,12 +109,15 @@ log_step "STEP 4: Setting Up Branch Protection"
 log_info "Configuring main branch protection..."
 gh api repos/$REPO_OWNER/$REPO_NAME/branches/main/protection \
     --method PUT \
-    --field required_status_checks='{"strict":true,"contexts":["test"]}' \
+    --field required_status_checks[strict]=true \
+    --field required_status_checks[contexts][]="CI/CD Pipeline" \
     --field enforce_admins=true \
-    --field required_pull_request_reviews='{"required_approving_review_count":1,"dismiss_stale_reviews":true,"require_code_owner_reviews":false}' \
+    --field required_pull_request_reviews[required_approving_review_count]=1 \
+    --field required_pull_request_reviews[dismiss_stale_reviews]=true \
+    --field required_pull_request_reviews[require_code_owner_reviews]=false \
     --field restrictions=null \
     --field allow_force_pushes=false \
-    --field allow_deletions=false 2>/dev/null || log_warning "Branch protection may already be configured"
+    --field allow_deletions=false 2>/dev/null || log_warning "Branch protection configuration skipped (may need manual setup)"
 
 log_success "Branch protection configured"
 

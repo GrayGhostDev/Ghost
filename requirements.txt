@@ -6,9 +6,9 @@ anthropic==0.34.2
 openai==1.51.2
 
 # HTTP requests and web scraping
-requests==2.31.0
+requests>=2.32.4
 httpx==0.27.2
-aiohttp==3.10.5
+aiohttp>=3.12.14
 beautifulsoup4==4.12.3
 selenium==4.25.0
 
@@ -68,6 +68,6 @@ loguru==0.7.2
 sentry-sdk==2.14.0
 
 # Security
-cryptography==43.0.1
+cryptography>=44.0.1
 pyjwt==2.9.0
 bcrypt==4.2.1

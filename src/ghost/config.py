@@ -53,7 +53,7 @@ class RedisConfig:
 @dataclass
 class APIConfig:
     """API configuration settings."""
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"  # Default to localhost for security
     port: int = 8000
     debug: bool = False
     reload: bool = False

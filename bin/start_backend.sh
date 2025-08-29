@@ -258,7 +258,7 @@ log_step "STEP 8: Launching Ghost Backend API"
 
 # Set environment variables
 export API_PORT="$API_PORT"
-export API_HOST="${API_HOST:-0.0.0.0}"
+export API_HOST="${API_HOST:-127.0.0.1}"  # Default to localhost for security, can be overridden
 
 # Trap for clean shutdown
 cleanup_on_exit() {

@@ -105,8 +105,8 @@ class HashUtils:
     
     @staticmethod
     def md5(text: str) -> str:
-        """Generate MD5 hash."""
-        return hashlib.md5(text.encode()).hexdigest()
+        """Generate MD5 hash (for non-security purposes only)."""
+        return hashlib.md5(text.encode(), usedforsecurity=False).hexdigest()  # nosec B324
     
     @staticmethod
     def sha256(text: str) -> str:
