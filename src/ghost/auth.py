@@ -57,7 +57,7 @@ class AuthManager(LoggerMixin):
     """Manages authentication and authorization."""
     
     def __init__(self, config=None):
-        self.config = config or get_config().api
+        self.config = config or get_config().auth  # Use auth config, not api config
         self.secret_key = self.config.jwt_secret
         self.algorithm = self.config.jwt_algorithm
         self.expiry_hours = self.config.jwt_expiry_hours

@@ -25,13 +25,21 @@ class DatabaseConfig:
     pool_size: int = 10
     max_overflow: int = 20
     echo: bool = False
+    _custom_url: Optional[str] = field(default=None, init=False)
     
     @property
     def url(self) -> str:
         """Generate database connection URL."""
+        if self._custom_url:
+            return self._custom_url
         if self.driver == "sqlite":
             return f"sqlite:///{self.name}"
         return f"{self.driver}://{self.user}:{self.password}@{self.host}:{self.port}/{self.name}"
+    
+    @url.setter
+    def url(self, value: str) -> None:
+        """Set custom database URL."""
+        self._custom_url = value
 
 
 @dataclass
@@ -55,6 +63,8 @@ class APIConfig:
     """API configuration settings."""
     host: str = "127.0.0.1"  # Default to localhost for security
     port: int = 8000
+    title: str = "Ghost Backend API"  # Add title property
+    version: str = "1.0.0"  # Add version property
     debug: bool = False
     reload: bool = False
     workers: int = 1
@@ -71,10 +81,18 @@ class LoggingConfig:
     """Logging configuration settings."""
     level: str = "INFO"
     format: str = "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
+    file: Optional[str] = None  # Add file property (alias for file_path)
     file_path: Optional[str] = None
     max_size: str = "10 MB"
     retention: str = "30 days"
     compression: str = "zip"
+    
+    def __post_init__(self):
+        """Sync file and file_path properties."""
+        if self.file and not self.file_path:
+            self.file_path = self.file
+        elif self.file_path and not self.file:
+            self.file = self.file_path
 
 
 @dataclass
@@ -91,10 +109,11 @@ class ExternalAPIsConfig:
 @dataclass
 class AuthConfig:
     """Authentication configuration settings."""
-    jwt_secret: str = ""
+    jwt_secret: str = "dev-secret-key-change-in-production"  # Add default for testing
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
+    jwt_expiry_hours: int = 24  # Add this missing attribute
     password_min_length: int = 8
 
 

@@ -11,7 +11,7 @@ import string
 import json
 import csv
 import io
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Union, TypeVar, Generic, Callable
 from pathlib import Path
 from dataclasses import asdict, is_dataclass
@@ -49,6 +49,28 @@ class DateTimeUtils:
         return dt.isoformat()
     
     @staticmethod
+    def format_datetime(dt: datetime, format_str: str) -> str:
+        """Format datetime using custom format string.
+        
+        Supports both Python strftime and some common formats.
+        """
+        # Convert common format patterns
+        format_mappings = {
+            'YYYY': '%Y',
+            'MM': '%m',
+            'DD': '%d',
+            'HH': '%H',
+            'mm': '%M',
+            'ss': '%S'
+        }
+        
+        python_format = format_str
+        for pattern, replacement in format_mappings.items():
+            python_format = python_format.replace(pattern, replacement)
+            
+        return dt.strftime(python_format)
+    
+    @staticmethod
     def parse_iso(iso_string: str) -> datetime:
         """Parse ISO datetime string."""
         return datetime.fromisoformat(iso_string)
@@ -73,6 +95,11 @@ class StringUtils:
         slug = re.sub(r'\s+', '-', slug)
         slug = re.sub(r'-+', '-', slug)
         return slug.strip('-')
+    
+    @staticmethod
+    def slugify(text: str) -> str:
+        """Create a URL-friendly slug from text (alias for generate_slug)."""
+        return StringUtils.generate_slug(text)
     
     @staticmethod
     def truncate(text: str, max_length: int = 100, suffix: str = "...") -> str:
@@ -191,6 +218,16 @@ class ValidationUtils:
                 if length < min_len or length > max_len:
                     errors.append(f"Field '{field}' length must be between {min_len} and {max_len}")
         return errors
+    
+    @staticmethod
+    def is_email(email: str) -> bool:
+        """Validate email address format."""
+        if not email or not isinstance(email, str):
+            return False
+        
+        # Basic email regex pattern
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return re.match(pattern, email.strip()) is not None
 
 
 class SerializationUtils:
@@ -284,6 +321,9 @@ class FileUtils:
 class CacheUtils:
     """Utility functions for caching operations."""
     
+    # Simple in-memory cache
+    _cache: Dict[str, Dict[str, Any]] = {}
+    
     @staticmethod
     def generate_cache_key(*args, **kwargs) -> str:
         """Generate cache key from arguments."""
@@ -298,6 +338,42 @@ class CacheUtils:
     def is_cache_expired(cached_time: datetime, ttl_seconds: int) -> bool:
         """Check if cache entry has expired."""
         return (DateTimeUtils.now_utc() - cached_time).total_seconds() > ttl_seconds
+    
+    @staticmethod
+    def set(key: str, value: Any, ttl: int = 3600) -> None:
+        """Set a cache value with TTL."""
+        expire_time = DateTimeUtils.now_utc() + timedelta(seconds=ttl)
+        CacheUtils._cache[key] = {
+            'value': value,
+            'expire_time': expire_time
+        }
+    
+    @staticmethod
+    def get(key: str) -> Any:
+        """Get a cache value."""
+        if key not in CacheUtils._cache:
+            return None
+        
+        entry = CacheUtils._cache[key]
+        if DateTimeUtils.now_utc() > entry['expire_time']:
+            # Cache expired, remove it
+            del CacheUtils._cache[key]
+            return None
+            
+        return entry['value']
+    
+    @staticmethod
+    def delete(key: str) -> bool:
+        """Delete a cache entry."""
+        if key in CacheUtils._cache:
+            del CacheUtils._cache[key]
+            return True
+        return False
+    
+    @staticmethod
+    def clear() -> None:
+        """Clear all cache entries."""
+        CacheUtils._cache.clear()
 
 
 class DataStructureUtils:

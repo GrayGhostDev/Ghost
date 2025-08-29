@@ -46,7 +46,7 @@ jobs:
     
     - name: Test with pytest
       run: |
-        pytest tests/ --cov=src --cov-report=xml -k "not (test_utility_functions or test_caching_utilities or test_env_variable_loading or test_yaml_config_loading or test_database_manager_creation or test_auth_manager_creation or test_api_manager_creation)"
+        pytest tests/ --cov=src --cov-report=xml
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
