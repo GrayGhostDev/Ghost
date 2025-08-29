@@ -6,11 +6,11 @@ import tempfile
 import os
 from pathlib import Path
 
-from ghost import (
+from src.ghost import (
     Config, get_config, setup_logging, get_logger,
     get_available_features
 )
-from ghost.utils import (
+from src.ghost.utils import (
     DateTimeUtils, StringUtils, ValidationUtils,
     SerializationUtils, CacheUtils
 )
