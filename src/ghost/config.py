@@ -176,7 +176,7 @@ class ConfigManager:
         config.database.user = os.getenv("DB_USER", config.database.user)
         config.database.password = os.getenv("DB_PASSWORD", config.database.password)
         config.database.driver = os.getenv("DB_DRIVER", config.database.driver)
-        # Support DATABASE_URL override
+        # Always apply DATABASE_URL override last
         db_url = os.getenv("DATABASE_URL")
         if db_url:
             config.database.url = db_url
@@ -228,7 +228,7 @@ class ConfigManager:
         if "database" in data:
             db_data = data["database"]
             config.database = DatabaseConfig(**{k: v for k, v in db_data.items() if k != "url"})
-            # Support url override from YAML
+            # Always apply url override last
             if "url" in db_data:
                 config.database.url = db_data["url"]
         
