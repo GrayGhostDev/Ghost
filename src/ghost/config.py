@@ -227,10 +227,10 @@ class ConfigManager:
         # Database
         if "database" in data:
             db_data = data["database"]
-                config.database = DatabaseConfig(**{k: v for k, v in db_data.items() if k != "url"})
-                # Support url override from YAML
-                if "url" in db_data:
-                    config.database.url = db_data["url"]
+            config.database = DatabaseConfig(**{k: v for k, v in db_data.items() if k != "url"})
+            # Support url override from YAML
+            if "url" in db_data:
+                config.database.url = db_data["url"]
         
         # Redis
         if "redis" in data:
