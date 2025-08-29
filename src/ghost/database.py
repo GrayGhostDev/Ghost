@@ -8,8 +8,8 @@ Supports PostgreSQL, SQLite, and other SQLAlchemy-compatible databases.
 import asyncio
 from contextlib import asynccontextmanager, contextmanager
 from typing import Optional, AsyncGenerator, Generator, Dict, Any, List
-from sqlalchemy import create_engine, MetaData, Table, text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy import create_engine, MetaData, Table, text, Engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
 from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
 from sqlalchemy.pool import QueuePool
 import redis
@@ -28,10 +28,10 @@ class DatabaseManager(LoggerMixin):
     
     def __init__(self, config: Optional[DatabaseConfig] = None):
         self.config = config or get_config().database
-        self.engine = None
-        self.async_engine = None
-        self.session_factory = None
-        self.async_session_factory = None
+        self.engine: Optional[Engine] = None
+        self.async_engine: Optional[AsyncEngine] = None
+        self.session_factory: Optional[sessionmaker[Session]] = None
+        self.async_session_factory: Optional[async_sessionmaker[AsyncSession]] = None
         self._metadata = MetaData()
     
     def initialize(self) -> None:
@@ -244,7 +244,7 @@ class MongoManager(LoggerMixin):
     def __init__(self, connection_string: str):
         self.connection_string = connection_string
         self.client: Optional[pymongo.MongoClient] = None
-        self.database = None
+        self.database: Optional[Any] = None
     
     def initialize(self, database_name: str) -> None:
         """Initialize MongoDB connection."""

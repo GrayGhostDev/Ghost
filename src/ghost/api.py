@@ -164,8 +164,9 @@ class APIManager(LoggerMixin):
                     code=429
                 )
             )
-            response = _rate_limit_exceeded_handler(request, exc)
-            return response
+            # Apply rate limit handler logic if needed
+            enhanced_response = _rate_limit_exceeded_handler(request, exc)
+            return enhanced_response
         
         app.add_middleware(SlowAPIMiddleware)
         
