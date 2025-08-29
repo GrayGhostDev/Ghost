@@ -52,9 +52,9 @@ class BackendReview:
         
         # Development Features
         dev_features = {
-            "Frontend Detection": self.check_file_exists("scripts/frontend_detector.py"),
-            "Database Migrations": self.check_file_exists("scripts/database_migrations.py"),
-            "Multi-Backend Manager": self.check_file_exists("backend_manager.py"),
+            "Frontend Detection": self.check_file_exists("tools/scripts/frontend_detector.py"),
+            "Database Migrations": self.check_file_exists("tools/scripts/database_migrations.py"),
+            "Multi-Backend Manager": self.check_file_exists("tools/backend_manager.py"),
             "Development Scripts": self.check_directory_files("scripts", 3),
             "Test Framework": self.check_file_exists("tests/test_framework.py"),
         }
@@ -83,15 +83,15 @@ class BackendReview:
             "Connection Pooling": self.check_file_contains("src/ghost/database.py", "pool"),
             "Redis Integration": self.check_file_contains("src/ghost/config.py", "redis") and self.check_file_contains("src/ghost/database.py", "redis"),
             "Rate Limiting": self.check_file_contains("src/ghost/api.py", "limiter") or self.check_file_contains("src/ghost/api.py", "slowapi"),
-            "CORS Configuration": self.check_file_contains("src/ghost/api.py", "cors") and self.check_file_contains("backend_manager.py", "cors"),
+            "CORS Configuration": self.check_file_contains("src/ghost/api.py", "cors") and self.check_file_contains("tools/backend_manager.py", "cors"),
         }
         
         # Multi-Frontend Integration
         multi_frontend = {
-            "Auto-Detection": self.check_file_exists("scripts/frontend_detector.py"),
-            "Dynamic CORS": self.check_file_contains("backend_manager.py", "setup_cors"),
-            "Frontend Watcher": self.check_file_exists("scripts/frontend_watcher.py"),
-            "Config Generation": self.check_file_contains("scripts/frontend_detector.py", "save_config"),
+            "Auto-Detection": self.check_file_exists("tools/scripts/frontend_detector.py"),
+            "Dynamic CORS": self.check_file_contains("tools/backend_manager.py", "setup_cors"),
+            "Frontend Watcher": self.check_file_exists("tools/scripts/frontend_watcher.py"),
+            "Config Generation": self.check_file_contains("tools/scripts/frontend_detector.py", "save_config"),
             "WebSocket Channels": self.check_file_contains("src/ghost/websocket.py", "channel") or self.check_file_contains("config.multi-frontend.yaml", "websocket"),
         }
         

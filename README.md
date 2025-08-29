@@ -63,7 +63,7 @@ Ghost/
 └── examples/      # Usage examples
 ```
 
-See [DIRECTORY_STRUCTURE.md](DIRECTORY_STRUCTURE.md) for detailed organization.
+See [docs/DIRECTORY_STRUCTURE.md](docs/DIRECTORY_STRUCTURE.md) for detailed organization and all documentation files.
 
 ## 📦 Installation
 
@@ -160,6 +160,18 @@ token = auth_manager.create_token(user)
 ## 🔧 Configuration
 
 ### Environment Variables (.env)
+# 📚 Documentation
+
+All project documentation is now located in the `docs/` folder for better organization and maintainability. This includes:
+- Architecture Review: [docs/ARCHITECTURE_REVIEW.md](docs/ARCHITECTURE_REVIEW.md)
+- Security Policy: [docs/SECURITY.md](docs/SECURITY.md)
+- Security Status: [docs/SECURITY_STATUS_COMPLETE.md](docs/SECURITY_STATUS_COMPLETE.md)
+- Security Setup: [docs/SECURITY_SETUP.md](docs/SECURITY_SETUP.md)
+- API Management: [docs/API_MANAGEMENT.md](docs/API_MANAGEMENT.md)
+- Contributing Guide: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- Proxy Configuration: [docs/PROXYMAN_FIX.md](docs/PROXYMAN_FIX.md)
+- Security Remediation Report: [docs/SECURITY_REMEDIATION_REPORT.md](docs/SECURITY_REMEDIATION_REPORT.md)
+- Organization Complete: [docs/ORGANIZATION_COMPLETE.md](docs/ORGANIZATION_COMPLETE.md)
 ```env
 # Database
 DATABASE_URL=postgresql://user:pass@localhost/dbname
@@ -167,15 +179,9 @@ REDIS_URL=redis://localhost:6379
 MONGO_URL=mongodb://localhost:27017
 
 # API
-API_HOST=0.0.0.0
-API_PORT=8000
-API_CORS_ORIGINS=["http://localhost:3000"]
 
 # Auth
 JWT_SECRET_KEY=your-secret-key-here
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
-
 # Logging
 LOG_LEVEL=INFO
 LOG_FILE=logs/app.log

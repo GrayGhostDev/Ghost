@@ -82,7 +82,7 @@ fi
 
 # Check secure configuration files
 log_info "Checking configuration files..."
-config_files=("config.production.yaml" "docker-compose.yml" "run_api.sh" "start_multi_backend.py")
+config_files=("config.production.yaml" "docker-compose.yml" "run_api.sh" "tools/start_multi_backend.py")
 
 for file in "${config_files[@]}"; do
     if [[ -f "$file" ]]; then

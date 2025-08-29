@@ -53,7 +53,7 @@ def test_configuration():
 def get_frontend_apps():
     """Get frontend application count."""
     try:
-        success, stdout, _ = run_command("python scripts/frontend_detector.py --quiet")
+        success, stdout, _ = run_command("python tools/scripts/frontend_detector.py --quiet")
         if success and "Found" in stdout:
             count = stdout.split("Found ")[1].split(" frontend")[0]
             return True, f"{count} applications detected"
@@ -113,8 +113,8 @@ def main():
         "src/ghost/auth.py", 
         "src/ghost/database.py",
         "src/ghost/websocket.py",
-        "scripts/database_migrations.py",
-        "scripts/frontend_detector.py"
+        "tools/scripts/database_migrations.py",
+        "tools/scripts/frontend_detector.py"
     ])
     status = "✅" if files_exist else "❌"
     print(f"{status} Core Framework Files: {'All present' if files_exist else 'Missing files'}")
@@ -176,7 +176,7 @@ def main():
     print(f"{status} Authentication: {'JWT + Role-based' if auth_configured else 'Not configured'}")
     
     # Database Migrations
-    migrations_exist = Path("scripts/database_migrations.py").exists()
+    migrations_exist = Path("tools/scripts/database_migrations.py").exists()
     status = "✅" if migrations_exist else "❌"
     print(f"{status} Database Migrations: {'Available' if migrations_exist else 'Not configured'}")
     
@@ -225,8 +225,8 @@ def main():
     
     print("\n📚 AVAILABLE COMMANDS:")
     print("   • Start API: ./run_api.sh")
-    print("   • Run migrations: python scripts/database_migrations.py migrate")
-    print("   • Detect frontends: python scripts/frontend_detector.py")
+    print("   • Run migrations: python tools/scripts/database_migrations.py migrate")
+    print("   • Detect frontends: python tools/scripts/frontend_detector.py")
     print("   • Run tests: python -m pytest")
     
     print("=" * 80)

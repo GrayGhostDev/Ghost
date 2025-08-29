@@ -30,9 +30,9 @@ uvicorn==0.30.6
 slowapi==0.1.9
 streamlit==1.38.0
 
-# Database connectivity - Python 3.13 compatible versions
+# Database connectivity - Python 3.12 compatible versions
 sqlalchemy==2.0.35
-# Use psycopg instead of psycopg2-binary for Python 3.13 compatibility
+# Use psycopg instead of psycopg2-binary for Python 3.12 compatibility
 psycopg[binary]==3.2.3
 pymongo==4.8.0
 redis==5.1.0

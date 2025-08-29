@@ -31,8 +31,8 @@ Configuration files properly organized:
 Development and maintenance utilities:
 - `security/` - Security management (keychain, env sync)
 - `setup/` - Setup and installation tools
-- `backend_manager.py` - Backend management utilities
-- `start_multi_backend.py` - Multi-backend orchestration
+- `tools/backend_manager.py` - Backend management utilities
+- `tools/start_multi_backend.py` - Multi-backend orchestration
 
 ### 📚 **Enhanced Documentation**
 - Updated `README.md` with new quick start guide

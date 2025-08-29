@@ -101,7 +101,7 @@ docker-compose up -d
 - `scripts/secrets/keychain.sh` → Primary credential management
 - `scripts/verify_security.sh` → Security verification
 - `run_api.sh` → Secure API startup
-- `start_multi_backend.py` → Multi-backend deployment
+- `tools/start_multi_backend.py` → Multi-backend deployment
 
 ## ⚠️ Critical Action Items
 

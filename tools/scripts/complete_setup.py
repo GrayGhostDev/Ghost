@@ -176,7 +176,7 @@ RUN pip install -e .
 EXPOSE 8888
 
 # Default command
-CMD ["python", "start_multi_backend.py"]
+CMD ["python", "tools/start_multi_backend.py"]
 """
     
     with open(base_dir / "Dockerfile", 'w') as f:
@@ -258,8 +258,8 @@ pip install -r requirements-dev.txt
 source .env.runtime  # Load secure credentials from keychain
 
 # Run migrations
-python scripts/database_migrations.py migrate
-python scripts/database_migrations.py seed
+python tools/scripts/database_migrations.py migrate
+python tools/scripts/database_migrations.py seed
 
 # Start services
 echo "🚀 Starting development services..."
@@ -267,7 +267,7 @@ echo "📡 Backend will be available at: http://localhost:8888"
 echo "📚 API docs will be available at: http://localhost:8888/docs"
 
 # Start the backend
-python start_multi_backend.py
+python tools/start_multi_backend.py
 """
     
     with open(base_dir / "dev_setup.sh", 'w') as f:
@@ -301,7 +301,7 @@ def run_tests_and_verify():
         tests_passed += 1
     
     # Test 4: Frontend detection
-    if run_command("python scripts/frontend_detector.py --scan-dirs . --config-file test-config.yaml", "Testing frontend detection"):
+    if run_command("python tools/scripts/frontend_detector.py --scan-dirs . --config-file test-config.yaml", "Testing frontend detection"):
         tests_passed += 1
     
     print(f"\n📊 Verification Results: {tests_passed}/{total_tests} tests passed")
@@ -349,8 +349,8 @@ def main():
         print("\n🚀 Quick Start Commands:")
         print("   • Start development: ./dev_setup.sh")
         print("   • Start with Docker: docker-compose up")
-        print("   • Run migrations: python scripts/database_migrations.py migrate")
-        print("   • Detect frontends: python scripts/frontend_detector.py")
+        print("   • Run migrations: python tools/scripts/database_migrations.py migrate")
+        print("   • Detect frontends: python tools/scripts/frontend_detector.py")
         print("   • Run tests: python -m pytest tests/")
         
         print("\n📡 Access Points:")

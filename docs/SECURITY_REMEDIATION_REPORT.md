@@ -21,7 +21,7 @@
 | `config.production.yaml` | Hardcoded JWT secrets | ✅ FIXED | Replaced with `${ENV_VAR}` references |
 | `run_api.sh` | Hardcoded JWT/API keys | ✅ FIXED | Updated to load from keychain |
 | `docker-compose.yml` | Hardcoded secrets | ✅ FIXED | Updated to use environment variables |
-| `start_multi_backend.py` | Hardcoded secrets | ✅ FIXED | Updated to use keychain loader |
+| `tools/start_multi_backend.py` | Hardcoded secrets | ✅ FIXED | Updated to use keychain loader |
 | `scripts/complete_setup.py` | Hardcoded secrets in templates | ✅ FIXED | Updated to secure references |
 | `dev_setup.sh` | Hardcoded secrets | ✅ FIXED | Updated to keychain integration |
 

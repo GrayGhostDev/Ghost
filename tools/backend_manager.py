@@ -17,6 +17,9 @@ import threading
 import time
 import signal
 
+# This file was moved from the project root to tools/
+# All imports referencing backend_manager should use tools.backend_manager
+
 # Add the src directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 

@@ -11,6 +11,9 @@ import subprocess
 import secrets
 from pathlib import Path
 
+# This file was moved from the project root to tools/
+# All imports referencing start_multi_backend should use tools.start_multi_backend
+
 # Add the src directory to Python path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
@@ -40,7 +43,7 @@ def setup_environment():
             print("⚠️  Failed to load from keychain, using fallback")
             setup_fallback_environment()
     else:
-        print("⚠️  Runtime environment not found. Run: ./scripts/secrets/keychain.sh setup")
+        print("⚠️  Runtime environment not found. Run: ./tools/scripts/secrets/keychain.sh setup")
         setup_fallback_environment()
 
 def setup_fallback_environment():
@@ -68,7 +71,7 @@ def detect_frontends():
         # Run the frontend detector
         result = subprocess.run([
             sys.executable, 
-            "scripts/frontend_detector.py",
+            "tools/scripts/frontend_detector.py",
             "--generate-env"
         ], capture_output=True, text=True)
         

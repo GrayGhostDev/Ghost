@@ -576,9 +576,9 @@ class BackendArchitectureReview:
         """Check frontend detection capabilities."""
         detection = {
             "detection_script": (self.base_path / "scripts" / "frontend_detector.py").exists(),
-            "framework_support": self._file_contains("scripts/frontend_detector.py", "react|angular|vue"),
-            "config_generation": self._file_contains("scripts/frontend_detector.py", "generate.*config|save_config"),
-            "env_generation": self._file_contains("scripts/frontend_detector.py", "generate.*env|env.*file"),
+            "framework_support": self._file_contains("tools/scripts/frontend_detector.py", "react|angular|vue"),
+            "config_generation": self._file_contains("tools/scripts/frontend_detector.py", "generate.*config|save_config"),
+            "env_generation": self._file_contains("tools/scripts/frontend_detector.py", "generate.*env|env.*file"),
         }
         score = sum(detection.values()) / len(detection)
         return {

@@ -199,6 +199,8 @@ class ConfigManager:
         config.external_apis.github_token = os.getenv("GITHUB_TOKEN", "")
         config.external_apis.sentry_dsn = os.getenv("SENTRY_DSN", "")
         
+        # Logging settings (support LOG_LEVEL override)
+        config.logging.level = os.getenv("LOG_LEVEL", config.logging.level)
         return config
     
     def load_from_yaml(self, file_path: Union[str, Path]) -> Config:

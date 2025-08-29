@@ -170,18 +170,18 @@ class TestDatabaseIntegration:
     @pytest.mark.asyncio
     async def test_database_manager_creation(self):
         """Test that DatabaseManager can be created."""
-        from ghost import DatabaseManager
+        from src.ghost.database import DatabaseManager
         
         config = Config()
         # Use SQLite for testing
         config.database.url = "sqlite:///test.db"
-        
+
         db_manager = DatabaseManager(config.database)
         assert db_manager is not None
-        
+
         # Should be able to initialize (but might not connect without proper setup)
         try:
-            await db_manager.initialize()
+            db_manager.initialize()
         except Exception:
             # It's okay if this fails in test environment
             pass
@@ -196,18 +196,17 @@ class TestAuthIntegration:
     
     def test_auth_manager_creation(self):
         """Test that AuthManager can be created."""
-        from ghost import AuthManager, User, UserRole
-        
+        from src.ghost.auth import AuthManager, User, UserRole
         config = Config()
         auth_manager = AuthManager(config.auth)
         assert auth_manager is not None
-        
+
         # Test password hashing
         password = "test_password123!"
         hashed = auth_manager.hash_password(password)
         assert hashed != password
         assert auth_manager.verify_password(password, hashed)
-        
+
         # Test user creation
         user = User(
             id="test123",
@@ -228,12 +227,11 @@ class TestAPIIntegration:
     
     def test_api_manager_creation(self):
         """Test that APIManager can be created."""
-        from ghost import APIManager
-        
+        from src.ghost.api import APIManager
         config = Config()
         api_manager = APIManager(config.api)
         assert api_manager is not None
-        
+
         # Should be able to create FastAPI app
         app = api_manager.create_app()
         assert app is not None

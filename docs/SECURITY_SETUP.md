@@ -9,7 +9,7 @@ The following files have been updated to use secure keychain-based credential ma
 - `config.production.yaml` (environment variable references)
 - `run_api.sh` (keychain integration) 
 - `docker-compose.yml` (environment variable references)
-- `start_multi_backend.py` (keychain loader)
+- `tools/start_multi_backend.py` (keychain loader)
 - `scripts/complete_setup.py` (secure templates)
 
 ## 🔑 Quick Start - Secure Credential Setup
@@ -104,6 +104,8 @@ source <(./scripts/secrets/keychain.sh export)
 ├── config.production.yaml   ← Updated with ${ENV_VAR} references
 ├── run_api.sh               ← Updated with keychain loading
 ├── docker-compose.yml       ← Updated with env var references
+├── tools/
+│   └── start_multi_backend.py ← Updated keychain loader location
 ├── scripts/secrets/
 │   ├── keychain.sh          ← Keychain management utility
 │   └── runtime_env.sh       ← Runtime environment helper

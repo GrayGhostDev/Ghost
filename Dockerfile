@@ -23,4 +23,4 @@ RUN pip install -e .
 EXPOSE 8888
 
 # Default command
-CMD ["python", "start_multi_backend.py"]
+CMD ["python", "tools/start_multi_backend.py"]
