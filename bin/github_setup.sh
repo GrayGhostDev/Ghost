@@ -96,7 +96,8 @@ gh repo edit "$REPO_OWNER/$REPO_NAME" \
     --add-topic "devops" \
     --add-topic "api" \
     --add-topic "microservices" \
-    --visibility public
+    --visibility public \
+    --accept-visibility-change-consequences
 
 log_success "Repository metadata updated"
 
@@ -144,28 +145,21 @@ log_step "STEP 6: Setting Up Issue Labels"
 
 log_info "Creating custom labels..."
 
-# Define custom labels
-declare -A LABELS=(
-    ["security"]="d73a4a"
-    ["priority-high"]="b60205"
-    ["priority-medium"]="fbca04"
-    ["priority-low"]="0e8a16"
-    ["needs-triage"]="ededed"
-    ["backend"]="1d76db"
-    ["frontend"]="f9d0c4"
-    ["database"]="5319e7"
-    ["api"]="0052cc"
-    ["documentation"]="0075ca"
-    ["performance"]="fef2c0"
-    ["refactor"]="e4e669"
-    ["dependencies"]="0366d6"
-    ["automated"]="c2e0c6"
-)
-
-for label in "${!LABELS[@]}"; do
-    color="${LABELS[$label]}"
-    gh label create "$label" --color "$color" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
-done
+# Create labels one by one
+gh label create "security" --color "d73a4a" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "priority-high" --color "b60205" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "priority-medium" --color "fbca04" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "priority-low" --color "0e8a16" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "needs-triage" --color "ededed" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "backend" --color "1d76db" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "frontend" --color "f9d0c4" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "database" --color "5319e7" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "api" --color "0052cc" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "documentation" --color "0075ca" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "performance" --color "fef2c0" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "refactor" --color "e4e669" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "dependencies" --color "0366d6" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
+gh label create "automated" --color "c2e0c6" --repo "$REPO_OWNER/$REPO_NAME" 2>/dev/null || true
 
 log_success "Custom labels created"
 
