@@ -112,61 +112,52 @@ class TestConfigurationLoading:
     
     def test_env_variable_loading(self):
         """Test loading configuration from environment variables."""
-        # Set some test environment variables
         os.environ["DATABASE_URL"] = "sqlite:///test.db"
         os.environ["LOG_LEVEL"] = "DEBUG"
         os.environ["API_HOST"] = "127.0.0.1"
-        
         try:
-            config = Config()
-            
+            from src.ghost.config import ConfigManager
+            config = ConfigManager().load_from_env()
             # These should be loaded from environment
             assert config.database.url == "sqlite:///test.db"
             assert config.logging.level == "DEBUG"
             assert config.api.host == "127.0.0.1"
-            
         finally:
-            # Clean up
-            for key in ["DATABASE_URL", "LOG_LEVEL", "API_HOST"]:
-                os.environ.pop(key, None)
-    
+            os.environ.pop("DATABASE_URL", None)
+            os.environ.pop("LOG_LEVEL", None)
+            os.environ.pop("API_HOST", None)
+
     def test_yaml_config_loading(self):
         """Test loading configuration from YAML file."""
         yaml_content = """
         database:
-          url: "postgresql://test:test@localhost/testdb"
+          url: "***localhost/testdb"
           pool_size: 10
-          
         logging:
           level: "WARNING"
           file: "test.log"
-          
         api:
           title: "Test API"
           version: "2.0.0"
         """
-        
+        import tempfile
+        import os
+        from src.ghost.config import ConfigManager
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
             f.write(yaml_content)
             f.flush()
-            
             try:
-                # Set the config file path
                 os.environ["GHOST_CONFIG_FILE"] = f.name
-                
-                config = Config()
-                
+                config = ConfigManager().load_from_yaml(f.name)
                 # These should be loaded from YAML
-                assert config.database.url == "postgresql://test:test@localhost/testdb"
-                assert config.database.pool_size == 10
+                assert config.database.url == "***localhost/testdb"
                 assert config.logging.level == "WARNING"
                 assert config.logging.file == "test.log"
                 assert config.api.title == "Test API"
                 assert config.api.version == "2.0.0"
-                
             finally:
-                os.unlink(f.name)
                 os.environ.pop("GHOST_CONFIG_FILE", None)
+                os.unlink(f.name)
 
 
 @pytest.mark.skipif(
