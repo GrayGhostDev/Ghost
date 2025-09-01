@@ -38,6 +38,30 @@ try:
 except ImportError:
     _API_AVAILABLE = False
 
+try:
+    from .email import EmailManager, EmailMessage, EmailProvider, get_email_manager
+    _EMAIL_AVAILABLE = True
+except ImportError:
+    _EMAIL_AVAILABLE = False
+
+try:
+    from .tasks import TaskManager, Task, TaskStatus, task, get_task_manager
+    _TASKS_AVAILABLE = True
+except ImportError:
+    _TASKS_AVAILABLE = False
+
+try:
+    from .storage import StorageManager, UploadedFile, FileType, get_storage_manager
+    _STORAGE_AVAILABLE = True
+except ImportError:
+    _STORAGE_AVAILABLE = False
+
+try:
+    from .models import User as UserModel, Role, Permission, BaseRepository, UserRepository
+    _MODELS_AVAILABLE = True
+except ImportError:
+    _MODELS_AVAILABLE = False
+
 # Create conditional exports
 __all__ = [
     "Config",
@@ -81,6 +105,40 @@ if _API_AVAILABLE:
         "get_api_manager"
     ])
 
+if _EMAIL_AVAILABLE:
+    __all__.extend([
+        "EmailManager",
+        "EmailMessage",
+        "EmailProvider",
+        "get_email_manager"
+    ])
+
+if _TASKS_AVAILABLE:
+    __all__.extend([
+        "TaskManager",
+        "Task",
+        "TaskStatus",
+        "task",
+        "get_task_manager"
+    ])
+
+if _STORAGE_AVAILABLE:
+    __all__.extend([
+        "StorageManager",
+        "UploadedFile",
+        "FileType",
+        "get_storage_manager"
+    ])
+
+if _MODELS_AVAILABLE:
+    __all__.extend([
+        "UserModel",
+        "Role",
+        "Permission",
+        "BaseRepository",
+        "UserRepository"
+    ])
+
 # Convenience function to check available features
 def get_available_features():
     """Get list of available features based on installed dependencies."""
@@ -91,5 +149,9 @@ def get_available_features():
         "database": _DATABASE_AVAILABLE,
         "auth": _AUTH_AVAILABLE,
         "api": _API_AVAILABLE,
+        "email": _EMAIL_AVAILABLE,
+        "tasks": _TASKS_AVAILABLE,
+        "storage": _STORAGE_AVAILABLE,
+        "models": _MODELS_AVAILABLE,
     }
     return features

@@ -139,3 +139,87 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# ============================================
+# Ghost Backend Framework - Additional Patterns
+# ============================================
+
+# Email templates (local development)
+templates/emails/local/*
+!templates/emails/local/.gitkeep
+templates/emails/*.tmp
+email_queue/
+
+# Task processing and background jobs
+task_queue/
+task_results/
+*.task
+*.job
+celery*.pid
+celerybeat-schedule
+celerybeat.db
+scheduled_tasks/
+
+# File uploads and storage
+media/
+static/uploads/
+thumbnails/
+temp_uploads/
+processed_uploads/
+*.upload
+*.tmp.jpg
+*.tmp.png
+
+# Session storage
+sessions/
+flask_session/
+*.session
+session_store/
+
+# Additional database patterns
+alembic/versions/*.pyc
+migrations/versions/*.pyc
+*.db-journal
+*.db-shm
+*.db-wal
+instance/
+
+# Test artifacts
+test_uploads/
+test_*.db
+test_*.sqlite
+.test_env
+test_results/
+test_media/
+test_cache/
+
+# Cache directories
+.cache/
+cache/
+*.cache
+redis-data/
+memcached-data/
+__pycache_backup__/
+
+# Monitoring and metrics
+metrics/
+prometheus_data/
+grafana_data/
+
+# Local development
+.env.development
+.env.staging
+.env.production
+local_settings.py
+dev_data/
+
+# Generated documentation
+docs/_build/
+docs/api/
+autodoc/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp.bak
+~$*

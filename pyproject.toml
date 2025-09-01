@@ -55,6 +55,18 @@ auth = [
     "bcrypt>=4.1.0",
     "passlib[bcrypt]>=1.7.4",
 ]
+email = [
+    "aiosmtplib>=3.0.0",
+    "jinja2>=3.1.0",
+]
+tasks = [
+    "schedule>=1.2.0",
+]
+storage = [
+    "aiofiles>=23.0.0",
+    "pillow>=10.0.0",
+    "python-magic>=0.4.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
@@ -66,7 +78,7 @@ dev = [
     "pre-commit>=3.5.0",
 ]
 all = [
-    "ghost-backend[web,database,auth]",
+    "ghost-backend[web,database,auth,email,tasks,storage]",
 ]
 
 [project.urls]
