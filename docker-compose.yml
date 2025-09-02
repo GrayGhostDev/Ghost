@@ -1,14 +1,37 @@
 services:
   backend:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    image: ghost-backend:latest
+    container_name: ghost-backend
     ports:
       # Bind only to localhost for security. Use reverse proxy for external access
       - "127.0.0.1:8888:8888"
     environment:
+      # Application settings
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - API_HOST=0.0.0.0
+      - API_PORT=8888
+      - WORKERS=1
+      
+      # Database configuration
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=ghost
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-ghost_password}
+      
+      # Redis configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      
+      # Security keys (provide via .env file)
       - JWT_SECRET=${JWT_SECRET}
       - API_KEY=${API_KEY}
-      - DB_HOST=postgres
-      - REDIS_HOST=redis
+      
+      # External services
       - ANTHROPIC_ADMIN_API_KEY=${ANTHROPIC_ADMIN_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GITHUB_PAT=${GITHUB_PAT}
@@ -16,36 +39,80 @@ services:
       - SENDGRID_API_KEY=${SENDGRID_API_KEY}
       - SENTRY_DSN=${SENTRY_DSN}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - .:/app
-      - /app/.venv
+      # Mount only necessary directories, not entire codebase
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+      # For development only - hot reload
+      - ./src:/app/src:ro
+      - ./examples:/app/examples:ro
+    networks:
+      - ghost-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
+    container_name: ghost-postgres
     environment:
       - POSTGRES_DB=ghost
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${DB_PASSWORD:-ghost_password}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
     ports:
       # Only expose to localhost. Internal services use network
       - "127.0.0.1:5432:5432"
-    expose:
-      - "5432"  # Available to other containers on the network
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Optional: mount init scripts
+      # - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - ghost-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ghost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
   
   redis:
     image: redis:7-alpine
+    container_name: ghost-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       # Only expose to localhost. Internal services use network  
       - "127.0.0.1:6379:6379"
-    expose:
-      - "6379"  # Available to other containers on the network
     volumes:
       - redis_data:/data
+    networks:
+      - ghost-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  ghost-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local

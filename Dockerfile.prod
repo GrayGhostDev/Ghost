@@ -1,0 +1,99 @@
+# Production Dockerfile for Ghost Backend Framework
+# Optimized for security and performance
+
+# Stage 1: Builder
+FROM python:3.12-slim as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Upgrade pip and install build tools
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Copy and install requirements
+WORKDIR /tmp
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install production server
+RUN pip install --no-cache-dir gunicorn
+
+# Stage 2: Runtime (minimal)
+FROM python:3.12-slim
+
+# Install only essential runtime dependencies
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    && rm -rf /var/cache/apt/*
+
+# Security: Create non-root user
+RUN groupadd -r ghost && \
+    useradd -r -g ghost -m -d /home/ghost -s /sbin/nologin ghost && \
+    mkdir -p /app && \
+    chown -R ghost:ghost /app
+
+# Copy virtual environment from builder
+COPY --from=builder --chown=ghost:ghost /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code (respects .dockerignore)
+COPY --chown=ghost:ghost src/ /app/src/
+COPY --chown=ghost:ghost examples/ /app/examples/
+COPY --chown=ghost:ghost tools/docker_entrypoint.py /app/tools/
+COPY --chown=ghost:ghost setup.py pyproject.toml README.md /app/
+
+# Create necessary directories with correct permissions
+RUN mkdir -p /app/logs /app/uploads /app/temp && \
+    chown -R ghost:ghost /app && \
+    chmod -R 755 /app && \
+    chmod -R 700 /app/logs
+
+# Install the package
+RUN pip install --no-cache-dir -e . && \
+    pip cache purge
+
+# Security: Remove unnecessary packages and files
+RUN apt-get purge -y --auto-remove gcc g++ && \
+    rm -rf /root/.cache /tmp/* /var/tmp/*
+
+# Switch to non-root user
+USER ghost
+
+# Production environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app/src \
+    ENVIRONMENT=production \
+    API_HOST=0.0.0.0 \
+    API_PORT=8888 \
+    WORKERS=4 \
+    DEBUG=false
+
+# Expose port (documentation only)
+EXPOSE 8888
+
+# Health check with tighter timings for production
+HEALTHCHECK --interval=20s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8888/health || exit 1
+
+# Labels for container metadata
+LABEL maintainer="Ghost Backend Team" \
+      version="1.0.0" \
+      description="Ghost Backend Framework Production Container"
+
+# Use exec form to ensure proper signal handling
+ENTRYPOINT ["python", "/app/tools/docker_entrypoint.py"]
