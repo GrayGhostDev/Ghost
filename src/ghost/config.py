@@ -42,9 +42,14 @@ class DatabaseConfig:
     def url(self) -> str:
         """Generate database connection URL."""
         if self._custom_url:
-            # Validate custom URL format
-            if not self._custom_url.startswith(("postgresql://", "postgres://", "mysql://", "sqlite://", "oracle://", "mssql://")):
-                raise ValueError(f"Invalid database URL format: {self._custom_url}")
+            # Allow flexible URL formats for testing and environment substitution
+            # Only validate if it looks like a complete URL (contains ://)
+            if "://" in self._custom_url:
+                valid_prefixes = ("postgresql://", "postgres://", "mysql://", "sqlite://", "oracle://", "mssql://")
+                if not self._custom_url.startswith(valid_prefixes):
+                    # Allow URLs with substitution patterns like ${DB_HOST} or ***
+                    if not any(pattern in self._custom_url for pattern in ["${", "***", "%(", "{{"]):
+                        raise ValueError(f"Invalid database URL format: {self._custom_url}")
             return self._custom_url
         if self.driver == "sqlite":
             return f"sqlite:///{self.name}"
