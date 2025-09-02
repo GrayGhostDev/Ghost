@@ -458,8 +458,7 @@ class EmailTemplates:
     <p>Get started by <a href="{{ activation_link }}">activating your account</a>.</p>
     """
     
-    # nosec B105 - This is an email template name, not a password
-    PASSWORD_RESET_TEMPLATE = """
+    RESET_EMAIL_TEMPLATE = """
     <h2>Password Reset Request</h2>
     <p>Hi {{ name }},</p>
     <p>We received a request to reset your password.</p>
