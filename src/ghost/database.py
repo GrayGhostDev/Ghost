@@ -38,9 +38,15 @@ class DatabaseManager(LoggerMixin):
         """Initialize database connections."""
         self.logger.info(f"Initializing database connection to {self.config.host}:{self.config.port}")
         
+        # Update URL to use psycopg driver (v3) instead of psycopg2
+        sync_url = self.config.url
+        if sync_url.startswith("postgresql://"):
+            # Use psycopg (v3) driver
+            sync_url = sync_url.replace("postgresql://", "postgresql+psycopg://")
+        
         # Create synchronous engine
         self.engine = create_engine(
-            self.config.url,
+            sync_url,
             pool_size=self.config.pool_size,
             max_overflow=self.config.max_overflow,
             echo=self.config.echo,
