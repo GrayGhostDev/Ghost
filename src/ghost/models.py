@@ -152,7 +152,7 @@ class User(Base, TimestampMixin, SoftDeleteMixin, AuditMixin):
     
     # Additional data
     settings = Column(JSON, default=dict, nullable=False)
-    metadata = Column(JSON, default=dict, nullable=False)
+    user_metadata = Column(JSON, default=dict, nullable=False)
     
     # Relationships
     roles = relationship('Role', secondary=user_roles, back_populates='users', lazy='selectin')
