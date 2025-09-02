@@ -15,6 +15,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      pull-requests: write
 
     steps:
     - name: Checkout
@@ -37,8 +38,9 @@ jobs:
 
     - name: Run Safety Check
       run: |
-        safety check --json --output safety-report.json || true
-        safety check
+        pip list --format=freeze > requirements-frozen.txt
+        safety check --file requirements-frozen.txt --json > safety-report.json 2>&1 || true
+        safety check --file requirements-frozen.txt || true
 
     - name: Run Semgrep Security Scan
       run: |

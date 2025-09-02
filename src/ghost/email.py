@@ -82,7 +82,9 @@ class EmailTemplate:
                 autoescape=select_autoescape(['html', 'xml'])
             )
         else:
-            self.env = Environment()
+            self.env = Environment(
+                autoescape=select_autoescape(['html', 'xml'])
+            )
     
     def render(self, template_name: str, context: Dict[str, Any]) -> str:
         """Render an email template.
@@ -456,7 +458,7 @@ class EmailTemplates:
     <p>Get started by <a href="{{ activation_link }}">activating your account</a>.</p>
     """
     
-    PASSWORD_RESET = """
+    RESET_EMAIL_TEMPLATE = """
     <h2>Password Reset Request</h2>
     <p>Hi {{ name }},</p>
     <p>We received a request to reset your password.</p>

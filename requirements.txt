@@ -27,11 +27,13 @@ plotly==5.24.1
 flask==3.0.3
 fastapi==0.115.0
 uvicorn==0.30.6
+gunicorn==23.0.0
 slowapi==0.1.9
 streamlit==1.38.0
 
 # Database connectivity - Python 3.12 compatible versions
 sqlalchemy==2.0.35
+alembic==1.13.3
 # Use psycopg instead of psycopg2-binary for Python 3.12 compatibility
 psycopg[binary]==3.2.3
 pymongo==4.8.0
@@ -55,7 +57,8 @@ flake8==7.1.1
 mypy==1.11.2
 pre-commit==3.8.0
 
-# Async programming - Remove asyncpg for now due to Python 3.13 incompatibility
+# Async programming
+asyncpg==0.29.0
 asyncio-mqtt==0.16.2
 
 # Environment and configuration
