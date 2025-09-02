@@ -38,15 +38,25 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Set working directory
 WORKDIR /app
 
-# Copy application code (respects .dockerignore)
-COPY --chown=ghost:ghost . .
+# Copy package configuration files first
+COPY --chown=ghost:ghost pyproject.toml setup.py README.md ./
+
+# Copy source code
+COPY --chown=ghost:ghost src/ ./src/
+
+# Copy other necessary files
+COPY --chown=ghost:ghost examples/ ./examples/
+COPY --chown=ghost:ghost tools/docker_entrypoint.py ./tools/
+COPY --chown=ghost:ghost migrations/ ./migrations/
+COPY --chown=ghost:ghost alembic.ini ./
 
 # Create necessary directories with correct permissions
 RUN mkdir -p /app/logs /app/uploads /app/temp && \
-    chown -R ghost:ghost /app/logs /app/uploads /app/temp
+    chown -R ghost:ghost /app
 
-# Install the package
-RUN pip install -e .
+# Install the package in editable mode
+RUN pip install --no-cache-dir -e . && \
+    pip list | grep ghost
 
 # Switch to non-root user
 USER ghost
