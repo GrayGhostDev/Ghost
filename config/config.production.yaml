@@ -62,7 +62,8 @@ mongodb:
   
 # API server configuration
 api:
-  host: "0.0.0.0"
+  # Use 127.0.0.1 for production with reverse proxy. Only use 0.0.0.0 if needed for development
+  host: "127.0.0.1"
   port: 8000
   title: "MyApp API"
   description: "Comprehensive backend API"

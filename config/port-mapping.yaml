@@ -1,0 +1,111 @@
+# Ghost Backend Framework - Port Configuration Mapping
+# This file documents all ports used across different environments
+
+# Port Allocation Strategy:
+# - Development: 8000-8099 range
+# - Staging: 8100-8199 range  
+# - Production: 8080 (behind reverse proxy)
+# - Docker: 8888 (internal)
+
+environments:
+  development:
+    api:
+      host: "127.0.0.1"  # Localhost for development
+      port: 8000
+      alt_port: 8001     # Alternative if 8000 is in use
+    database:
+      postgres:
+        host: "localhost"
+        port: 5432
+    cache:
+      redis:
+        host: "localhost"
+        port: 6379
+    mongodb:
+      host: "localhost"
+      port: 27017        # If MongoDB is used
+
+  staging:
+    api:
+      host: "127.0.0.1"  # Always use localhost, proxy handles external
+      port: 8100
+    database:
+      postgres:
+        host: "localhost"
+        port: 5432
+    cache:
+      redis:
+        host: "localhost"
+        port: 6379
+
+  production:
+    api:
+      host: "127.0.0.1"  # NEVER expose directly, use reverse proxy
+      port: 8080
+    database:
+      postgres:
+        host: "localhost"  # Or internal hostname
+        port: 5432
+    cache:
+      redis:
+        host: "localhost"  # Or internal hostname
+        port: 6379
+    metrics:
+      prometheus:
+        host: "127.0.0.1"
+        port: 9090       # Metrics endpoint (internal only)
+
+  docker:
+    api:
+      host: "0.0.0.0"    # Inside container, OK to bind all interfaces
+      internal_port: 8888
+      exposed_port: "127.0.0.1:8888"  # Host binding
+    database:
+      postgres:
+        internal_port: 5432
+        exposed_port: "127.0.0.1:5432"  # Host binding
+        network_name: "postgres"        # Docker network hostname
+    cache:
+      redis:
+        internal_port: 6379
+        exposed_port: "127.0.0.1:6379"  # Host binding
+        network_name: "redis"           # Docker network hostname
+
+# Port Forwarding Rules:
+port_forwarding:
+  # Production reverse proxy (nginx/traefik)
+  public_https: 443  # -> 127.0.0.1:8080 (API)
+  public_http: 80    # -> Redirect to HTTPS
+  
+  # SSH access (if needed for deployment)
+  ssh: 22            # Restricted by firewall to admin IPs only
+  
+  # Monitoring (internal only)
+  grafana: 3000      # -> 127.0.0.1:3000
+  prometheus: 9090   # -> 127.0.0.1:9090
+
+# Security Notes:
+security:
+  - "Never expose database ports to public internet"
+  - "Always bind services to 127.0.0.1 in production"
+  - "Use reverse proxy for all external traffic"
+  - "Implement firewall rules to restrict access"
+  - "Use Docker networks for container-to-container communication"
+  - "SSH access should use key-based authentication only"
+
+# Common Issues and Solutions:
+troubleshooting:
+  port_conflicts:
+    - "Use 'lsof -i :PORT' to check what's using a port"
+    - "Alternative ports are configured for development"
+    - "Docker uses different ports to avoid conflicts"
+  
+  connection_refused:
+    - "Check if service is bound to 127.0.0.1 not 0.0.0.0"
+    - "Verify firewall rules allow the connection"
+    - "Ensure service is actually running"
+  
+  docker_networking:
+    - "Use service names (postgres, redis) inside Docker network"
+    - "Use localhost:PORT from host machine"
+    - "Containers communicate via internal Docker network"

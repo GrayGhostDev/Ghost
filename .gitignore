@@ -223,3 +223,52 @@ autodoc/
 *.temp
 *.swp.bak
 ~$*
+
+# ============================================
+# Security and Deployment - Added for Port/SSH Configuration
+# ============================================
+
+# SSH and Deployment Keys
+.ssh/
+!.ssh/config.example
+*.pem
+*.key
+*.crt
+*.cer
+deploy_key*
+id_rsa*
+id_ed25519*
+authorized_keys
+known_hosts
+
+# SSL/TLS Certificates
+ssl/
+certs/
+*.pfx
+*.p12
+fullchain.pem
+privkey.pem
+chain.pem
+cert.pem
+
+# Nginx local configurations
+nginx.conf.local
+nginx-local.conf
+sites-enabled/
+sites-available/
+
+# Production config overrides
+config/local/
+config/override/
+*.local.yaml
+*.local.json
+
+# Port forwarding and tunneling scripts
+port-forward.sh
+tunnel.sh
+*.tunnel
+
+# Deployment scripts with credentials
+deploy-prod.sh
+deploy-staging.sh
+rsync-deploy.sh

@@ -62,7 +62,7 @@ source .venv/bin/activate
 export API_PORT="${API_PORT:-8000}"
 
 echo "🚀 Starting Ghost Backend API (Dedicated Server)..."
-echo "📡 Host: ${API_HOST:-0.0.0.0}"
+echo "📡 Host: ${API_HOST:-127.0.0.1}"
 echo "📡 Port: $API_PORT (EXCLUSIVE ACCESS)"
 echo "🔑 JWT Secret loaded from keychain"
 echo "🗄️  Database: ${DB_HOST:-localhost}:${DB_PORT:-5432}/${DB_NAME:-ghost_db}"

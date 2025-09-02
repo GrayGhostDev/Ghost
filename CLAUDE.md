@@ -199,9 +199,18 @@ Critical environment variables (configured in .env):
 - `REDIS_URL` - Redis connection for caching/sessions
 - `JWT_SECRET_KEY` - Secret for JWT token signing
 - `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR)
-- `API_PORT` - API server port (default: 8080)
+- `API_HOST` - API host binding (default: 127.0.0.1 for security)
+- `API_PORT` - API server port (default: 8000, production: 8080)
 
 ## Security Configuration
+
+### Port Security
+- **All services bound to 127.0.0.1** by default (not 0.0.0.0)
+- **Production uses reverse proxy** (nginx) for external access
+- **Docker ports mapped to localhost only** for security
+- See `docs/PORT_SECURITY.md` for comprehensive guide
+- Port configuration: `config/port-mapping.yaml`
+- Nginx example: `config/nginx-example.conf`
 
 ### macOS Keychain Integration
 Credentials stored securely in macOS Keychain:
@@ -217,6 +226,7 @@ Access via: `./scripts/secrets/keychain.sh`
 - Rate limiting via SlowAPI
 - Input validation with Pydantic
 - SQL injection protection via SQLAlchemy ORM
+- No SSH keys in repository (deployment via CI/CD)
 
 ## Database Schema Management
 
