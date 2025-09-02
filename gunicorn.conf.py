@@ -14,8 +14,8 @@ backlog = 2048
 # Worker processes
 workers = int(os.environ.get('WORKERS', multiprocessing.cpu_count() * 2 + 1))
 worker_class = 'uvicorn.workers.UvicornWorker'
-worker_connections = 1000
-max_requests = 1000
+worker_connections = 2000
+max_requests = 10000
 max_requests_jitter = 50
 timeout = 120
 graceful_timeout = 30
@@ -50,19 +50,19 @@ if statsd_host:
 
 def worker_int(worker):
     """Called just after a worker exited on SIGINT or SIGQUIT."""
-    print(f"Worker {worker.pid} interrupted")
+    worker.log.info(f"Worker {worker.pid} interrupted")
 
 def worker_abort(worker):
     """Called when a worker received the SIGABRT signal."""
-    print(f"Worker {worker.pid} aborted")
+    worker.log.warning(f"Worker {worker.pid} aborted")
 
 def pre_fork(server, worker):
     """Called just before a worker is forked."""
-    print(f"Forking worker {worker}")
+    server.log.debug(f"Forking worker {worker}")
 
 def post_fork(server, worker):
     """Called just after a worker has been forked."""
-    print(f"Worker {worker.pid} spawned")
+    server.log.info(f"Worker {worker.pid} spawned")
 
 def pre_exec(server):
     """Called just before a new master process is forked."""
@@ -74,7 +74,7 @@ def when_ready(server):
 
 def worker_exit(server, worker):
     """Called just after a worker has been exited."""
-    print(f"Worker {worker.pid} exited")
+    server.log.info(f"Worker {worker.pid} exited")
 
 def on_starting(server):
     """Called just before the master process is initialized."""

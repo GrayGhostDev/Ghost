@@ -82,7 +82,9 @@ class EmailTemplate:
                 autoescape=select_autoescape(['html', 'xml'])
             )
         else:
-            self.env = Environment()
+            self.env = Environment(
+                autoescape=select_autoescape(['html', 'xml'])
+            )
     
     def render(self, template_name: str, context: Dict[str, Any]) -> str:
         """Render an email template.

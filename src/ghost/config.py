@@ -27,10 +27,24 @@ class DatabaseConfig:
     echo: bool = False
     _custom_url: Optional[str] = field(default=None, init=False)
     
+    def __post_init__(self):
+        """Validate database configuration."""
+        # Validate port number
+        if not isinstance(self.port, int) or self.port < 1 or self.port > 65535:
+            raise ValueError(f"Invalid database port: {self.port}. Must be between 1 and 65535.")
+        
+        # Validate driver
+        valid_drivers = ["postgresql", "postgres", "mysql", "sqlite", "oracle", "mssql"]
+        if self.driver not in valid_drivers:
+            raise ValueError(f"Invalid database driver: {self.driver}. Must be one of {valid_drivers}")
+    
     @property
     def url(self) -> str:
         """Generate database connection URL."""
         if self._custom_url:
+            # Validate custom URL format
+            if not self._custom_url.startswith(("postgresql://", "postgres://", "mysql://", "sqlite://", "oracle://", "mssql://")):
+                raise ValueError(f"Invalid database URL format: {self._custom_url}")
             return self._custom_url
         if self.driver == "sqlite":
             return f"sqlite:///{self.name}"
