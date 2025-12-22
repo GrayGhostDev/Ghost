@@ -44,7 +44,7 @@ click==8.1.7
 rich==13.8.1
 tqdm==4.66.5
 pydantic==2.9.2
-marshmallow==3.22.0
+marshmallow==3.26.2
 
 # Testing
 pytest==8.3.3

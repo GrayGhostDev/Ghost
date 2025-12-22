@@ -5,7 +5,7 @@
 # Additional development tools
 ipython==8.27.0
 jupyter==1.1.1
-jupyterlab==4.2.5
+jupyterlab==4.4.8
 notebook==7.2.2
 
 # Type stubs for mypy
