@@ -1,4 +1,79 @@
-# CLAUDE.md
+# Ghost Backend — CLAUDE.md
+
+## GGDC-System Level 2 Context
+
+> **Canonical location**: `~/Business/GGDC-System/ghost-backend/`
+> **Level**: 2 (shared core framework, not a client project)
+> **Phase**: 4+ — migrated from `/Volumes/G-DRIVE ArmorATD/Server/Backend/Ghost/`
+
+### Runtime Identity
+| Key | Value |
+|---|---|
+| API port | `8801` (host → container) |
+| DB port | `127.0.0.1:5433` (loopback only) |
+| Redis port | `127.0.0.1:6380` (loopback only) |
+| Container prefix | `ghost-be-*` |
+| Networks | `ghost-backend-net` (internal) + `ggdc-shared-net` (Level 2) |
+| GitHub remote | `git@github.com:Gray-Ghost-Data-Consultants-LLC/ghost-backend.git` |
+
+### Docker Compose (from this directory)
+```bash
+docker compose up -d          # Start all (requires ggdc-shared-net: make networks in GGDC-System/)
+docker compose down           # Stop
+docker compose logs -f backend # Tail API logs
+curl http://localhost:8801/health  # Gate 4->5 validation
+```
+
+### Minikube / Kubernetes (from this directory)
+```bash
+make mk/start                 # Start minikube cluster (4 CPU, 8GB RAM, docker driver)
+make mk/gcp-mount             # Mount GCP ADC into minikube (background process)
+make sk/dev                   # Skaffold dev loop with port-forward + live reload
+make sk/run                   # One-shot deploy via Skaffold
+make mk/deploy                # Direct kubectl apply (no Skaffold)
+make mk/status                # minikube status + pod listing
+make mk/logs                  # Tail backend pod logs
+make mk/shell                 # Exec into backend pod
+make mk/health                # curl localhost:8801/health
+make mk/delete                # Tear down K8s resources
+make sk/delete                # Tear down via Skaffold
+make mk/stop                  # Stop minikube VM
+```
+
+Port forwarding reuses the same host ports as Docker Compose:
+- API: `localhost:8801` → backend:8801
+- PostgreSQL: `localhost:5433` → postgres:5432
+- Redis: `localhost:6380` → redis:6379
+
+### GCP Authentication
+| Environment | Secret Source | Auth Method |
+|---|---|---|
+| Docker Compose | `.env` file | N/A |
+| Minikube | K8s Secret literals + optional GCP SM | ADC file mount (`make mk/gcp-mount`) |
+| GKE (future) | External Secrets Operator → GCP SM | Workload Identity |
+| Cloud Run (future) | GCP SM native | Service account |
+
+Set `GCP_SECRET_PROJECT=sylvan-flight-476922-m7` to enable GCP Secret Manager overlay in `config.py`.
+The overlay only fills empty/default fields — env vars always take precedence.
+
+### Level 2 Relationships
+- Prometheus scrapes this service via `ggdc-shared-net` (label: `com.ggdc.scrape=true`)
+- Traefik routes `api.ghost.local` → port 8801
+- Loki collects logs via Promtail (label: `com.ggdc.project=GGDC-System`)
+- Connects to Ghost-Platform (`the-system`) in Phase 5 via `ggdc-shared-net`
+
+### TablePlus GUI Access
+- **Ghost Backend DB** → TablePlus group "Ghost Backend (L2)" (orange) — `127.0.0.1:5433`, user `postgres`, db `ghost`
+- **Ghost BE Redis** → TablePlus group "Ghost Backend (L2)" (orange) — `127.0.0.1:6380`
+- Quick-open: `bash ~/Business/scripts/tableplus-open.sh ghost-be` (DB) or `redis-ghost-be` (Redis)
+
+### Critical Rules
+- **Never bind DB or Redis to 0.0.0.0** — loopback only (`127.0.0.1:PORT`)
+- **All ports must be in** `~/Business/config/port-registry.yaml` before use
+- **Do not add client-project business logic here** — this is a shared framework
+- Secrets go in `.env` (gitignored) — never committed; source from 1Password `GGDC / ghost-backend`
+
+---
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -248,9 +323,9 @@ alembic current
 ## API Documentation
 
 When the API is running:
-- Swagger UI: http://localhost:8080/docs
-- ReDoc: http://localhost:8080/redoc
-- Health check: http://localhost:8080/health
+- Swagger UI: http://localhost:8801/docs
+- ReDoc: http://localhost:8801/redoc
+- Health check: http://localhost:8801/health
 
 ## Project-Specific Notes
 
@@ -302,10 +377,15 @@ Default database pool settings:
 - `tests/` - Test suite
 - `docs/` - Comprehensive documentation
 - `examples/` - Usage examples
+- `k8s/base/` - Kustomize base manifests (Deployment, StatefulSet, Service, ConfigMap)
+- `k8s/overlays/minikube/` - Minikube-specific patches, secretGenerator, GCP auth mount
+- `k8s/overlays/production/` - Production overlay placeholder (Artifact Registry images)
 
 ## Important Files
 - `pyproject.toml` - Python package configuration and dependencies
-- `Makefile` - Database and environment management commands
+- `Makefile` - Database, Docker, Minikube, and Skaffold commands
+- `skaffold.yaml` - Skaffold dev/deploy configuration
 - `.env` - Environment variables (create from .env.example)
 - `config.yaml` - Application configuration
 - `alembic.ini` - Database migration configuration
+- `src/ghost/gcp_secrets.py` - GCP Secret Manager integration (optional)

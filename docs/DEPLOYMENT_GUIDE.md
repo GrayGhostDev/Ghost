@@ -303,7 +303,7 @@ steps:
       - '--image'
       - 'gcr.io/$PROJECT_ID/ghost-backend'
       - '--region'
-      - 'us-central1'
+      - 'us-east1'
       - '--platform'
       - 'managed'
 ```

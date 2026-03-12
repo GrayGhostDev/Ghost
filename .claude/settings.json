@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose*)",
+      "Bash(docker logs*)",
+      "Bash(docker ps*)",
+      "Bash(pytest*)",
+      "Bash(python -m pytest*)",
+      "Bash(uvicorn*)",
+      "Bash(alembic*)",
+      "Bash(pip install*)",
+      "Bash(curl http://localhost:8801*)",
+      "Bash(git *)",
+      "Bash(gh pr*)",
+      "Bash(gh run*)"
+    ],
+    "deny": [
+      "Bash(rm -rf*)",
+      "Write(**/.env)"
+    ]
+  },
+  "context": {
+    "level": 2,
+    "description": "Ghost Backend — shared Python framework (FastAPI, SQLAlchemy, async)",
+    "canonical_path": "~/Business/GGDC-System/ghost-backend/",
+    "parent": "~/Business/GGDC-System/",
+    "api_port": 8801,
+    "db_port": 5433,
+    "redis_port": 6380,
+    "container_prefix": "ghost-be-*",
+    "networks": ["ghost-backend-net", "ggdc-shared-net"],
+    "recommendedAgents": {
+      "backend": "specialized-agents:backend-specialist",
+      "database": "specialized-agents:database-architect",
+      "api": "advanced-agents:api-builder",
+      "testing": "core-agents:tester",
+      "security": "specialized-agents:security"
+    }
+  }
+}

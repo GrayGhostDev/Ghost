@@ -5,7 +5,7 @@
 # - Development: 8000-8099 range
 # - Staging: 8100-8199 range  
 # - Production: 8080 (behind reverse proxy)
-# - Docker: 8888 (internal)
+# - Docker: 8801 (internal, matches Level 2 port registry)
 
 environments:
   development:
@@ -58,8 +58,8 @@ environments:
   docker:
     api:
       host: "0.0.0.0"    # Inside container, OK to bind all interfaces
-      internal_port: 8888
-      exposed_port: "127.0.0.1:8888"  # Host binding
+      internal_port: 8801
+      exposed_port: "127.0.0.1:8801"  # Host binding
     database:
       postgres:
         internal_port: 5432
