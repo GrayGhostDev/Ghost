@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: ghost-backend
+  labels:
+    app: backend
+    app.kubernetes.io/name: ghost-backend
+    app.kubernetes.io/component: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+        app.kubernetes.io/name: ghost-backend
+        app.kubernetes.io/component: api
+    spec:
+      containers:
+        - name: backend
+          image: ghost-backend:latest
+          ports:
+            - containerPort: 8801
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secrets
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8801
+            failureThreshold: 10
+            periodSeconds: 4
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8801
+            initialDelaySeconds: 0
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8801
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

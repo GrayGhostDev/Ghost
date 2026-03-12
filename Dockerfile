@@ -66,14 +66,14 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \
     API_HOST=0.0.0.0 \
-    API_PORT=8888
+    API_PORT=8801
 
 # Expose port
-EXPOSE 8888
+EXPOSE 8801
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8888/health || exit 1
+    CMD curl -f http://localhost:8801/health || exit 1
 
 # Default command
 CMD ["python", "tools/docker_entrypoint.py"]

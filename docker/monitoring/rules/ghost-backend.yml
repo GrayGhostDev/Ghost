@@ -1,0 +1,79 @@
+groups:
+  - name: ghost-backend
+    rules:
+      # API is down
+      - alert: GhostBackendDown
+        expr: up{job="ghost-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          project: ghost-backend
+        annotations:
+          summary: "Ghost Backend API is down"
+          description: "ghost-be-api has been unreachable for more than 1 minute."
+
+      # High error rate (>5% of requests returning 5xx)
+      - alert: GhostBackendHighErrorRate
+        expr: >
+          sum(rate(ghost_http_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(ghost_http_requests_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          project: ghost-backend
+        annotations:
+          summary: "Ghost Backend high 5xx error rate"
+          description: "More than 5% of requests are returning 5xx for the last 5 minutes. Current: {{ $value | humanizePercentage }}"
+
+      # High latency (p95 > 2s)
+      - alert: GhostBackendHighLatency
+        expr: >
+          histogram_quantile(0.95, rate(ghost_http_request_duration_seconds_bucket[5m]))
+          > 2
+        for: 5m
+        labels:
+          severity: warning
+          project: ghost-backend
+        annotations:
+          summary: "Ghost Backend high request latency"
+          description: "p95 latency is above 2 seconds. Current: {{ $value | humanizeDuration }}"
+
+      # Redis down
+      - alert: GhostRedisDown
+        expr: redis_up{instance=~".*ghost.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          project: ghost-backend
+        annotations:
+          summary: "Ghost Backend Redis is down"
+          description: "ghost-be-redis has been unreachable for more than 1 minute."
+
+      # Redis high memory usage (>80%)
+      - alert: GhostRedisHighMemory
+        expr: >
+          redis_memory_used_bytes{instance=~".*ghost.*"}
+          /
+          redis_memory_max_bytes{instance=~".*ghost.*"}
+          > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          project: ghost-backend
+        annotations:
+          summary: "Ghost Backend Redis memory above 80%"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}."
+
+      # PostgreSQL too many connections (>80 of 100 max)
+      - alert: GhostPostgresTooManyConnections
+        expr: >
+          sum(pg_stat_activity_count{instance=~".*ghost.*"}) > 80
+        for: 5m
+        labels:
+          severity: warning
+          project: ghost-backend
+        annotations:
+          summary: "Ghost Backend PostgreSQL connection count high"
+          description: "{{ $value }} active connections (max 100)."

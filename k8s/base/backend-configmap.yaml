@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: ghost-backend
+  labels:
+    app: backend
+data:
+  ENVIRONMENT: "development"
+  DEBUG: "true"
+  API_HOST: "0.0.0.0"
+  API_PORT: "8801"
+  WORKERS: "1"
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DB_NAME: "ghost"
+  DB_USER: "postgres"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  OTEL_EXPORTER_OTLP_ENDPOINT: ""
+  OTEL_SERVICE_NAME: "ghost-backend"
+  OTEL_RESOURCE_ATTRIBUTES: "service.namespace=ggdc,deployment.environment=development"
+  LOG_LEVEL: "INFO"

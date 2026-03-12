@@ -15,7 +15,11 @@ PG_ISREADY := /opt/local/bin/pg_isready
 PG_BINDIR16 := /opt/local/lib/postgresql16/bin
 PGDATA16 := /opt/local/var/db/postgresql16/defaultdb
 
-.PHONY: db/install db/init db/start db/stop db/status db/create db/migrate-old env/keychain-setup env/envrc env/dotenv-sync tools/verify-path
+.PHONY: db/install db/init db/start db/stop db/status db/create db/migrate-old \
+       env/keychain-setup env/envrc env/dotenv-sync tools/verify-path \
+       up down logs ps build test lint format check migrate health \
+       mk/start mk/stop mk/status mk/dashboard mk/deploy mk/delete mk/logs mk/shell mk/health mk/gcp-mount \
+       sk/dev sk/run sk/build sk/delete
 
 tools/verify-path:
 	@. ./scripts/macports/env_helpers.sh; command -v psql >/dev/null && psql --version || true
@@ -81,4 +85,114 @@ env/envrc:
 
 env/dotenv-sync:
 	@ALLOW_DOTENV_SECRETS=true ./scripts/secrets/dotenv_sync.sh
+
+# ──────────────────────────────────────────────
+# Docker targets
+# ──────────────────────────────────────────────
+
+up:
+	@docker compose up -d
+	@echo "Ghost Backend started — http://localhost:8801/health"
+
+down:
+	@docker compose down
+
+logs:
+	@docker compose logs -f backend
+
+ps:
+	@docker compose ps
+
+build:
+	@docker compose build
+
+# ──────────────────────────────────────────────
+# Development targets
+# ──────────────────────────────────────────────
+
+test:
+	@python -m pytest tests/ --cov=src/ghost --cov-report=term -q
+
+lint:
+	@python -m flake8 src/ --max-line-length=120 --count --statistics
+	@python -m mypy src/ghost/ --ignore-missing-imports
+
+format:
+	@python -m black src/ tests/
+	@python -m isort src/ tests/
+
+check: lint test
+	@echo "All checks passed."
+
+migrate:
+	@alembic upgrade head
+
+health:
+	@curl -sf http://localhost:8801/health | python -m json.tool || echo "Backend not reachable"
+
+openapi:
+	@python tools/scripts/export_openapi.py docs/openapi.json
+	@echo "OpenAPI schema exported to docs/openapi.json"
+
+# ──────────────────────────────────────────────
+# Minikube targets
+# ──────────────────────────────────────────────
+
+MK_NAMESPACE := ghost-backend
+
+mk/start:
+	@minikube start --cpus=4 --memory=8192 --driver=docker
+	@echo "Minikube started. Run 'make sk/dev' or 'make mk/deploy' next."
+
+mk/stop:
+	@minikube stop
+
+mk/status:
+	@minikube status || true
+	@echo "---"
+	@kubectl get pods -n $(MK_NAMESPACE) 2>/dev/null || echo "Namespace $(MK_NAMESPACE) not found — deploy first."
+
+mk/dashboard:
+	@minikube dashboard &
+
+mk/deploy:
+	@eval $$(minikube docker-env) && docker build -t ghost-backend:latest .
+	@kubectl apply -k k8s/overlays/minikube/
+	@echo "Deployed. Waiting for pods..."
+	@kubectl rollout status deployment/backend -n $(MK_NAMESPACE) --timeout=120s || true
+	@kubectl get pods -n $(MK_NAMESPACE)
+
+mk/delete:
+	@kubectl delete -k k8s/overlays/minikube/ --ignore-not-found
+	@echo "Resources deleted."
+
+mk/logs:
+	@kubectl logs -f -l app=backend -n $(MK_NAMESPACE)
+
+mk/shell:
+	@kubectl exec -it $$(kubectl get pod -l app=backend -n $(MK_NAMESPACE) -o jsonpath='{.items[0].metadata.name}') -n $(MK_NAMESPACE) -- /bin/bash
+
+mk/health:
+	@curl -sf http://localhost:8801/health | python -m json.tool || echo "Backend not reachable (is port-forward running?)"
+
+mk/gcp-mount:
+	@echo "Mounting ~/.config/gcloud into minikube at /host-adc ..."
+	@minikube mount ~/.config/gcloud:/host-adc &
+	@echo "GCP ADC mount started in background. Use 'fg' or kill the process to stop."
+
+# ──────────────────────────────────────────────
+# Skaffold targets
+# ──────────────────────────────────────────────
+
+sk/dev:
+	@skaffold dev --port-forward
+
+sk/run:
+	@skaffold run --port-forward
+
+sk/build:
+	@skaffold build
+
+sk/delete:
+	@skaffold delete
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://claude.ai/code/mcp-schema.json",
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgresql://ghost:${POSTGRES_PASSWORD}@localhost:5433/ghost_backend"
+      },
+      "description": "Ghost Backend PostgreSQL (dev, port 5433)"
+    },
+    "filesystem-local": {
+      "command": "npx",
+      "args": [
+        "-y", "@modelcontextprotocol/server-filesystem",
+        "/Users/grayghostdata/Business/GGDC-System/ghost-backend"
+      ],
+      "description": "File system — scoped to ghost-backend only (fetch inherited from GGDC-System parent)"
+    }
+  }
+}

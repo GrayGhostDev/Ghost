@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ghost-backend
+  labels:
+    app.kubernetes.io/part-of: ghost-backend
+    com.ggdc.project: GGDC-System
+    com.ggdc.level: "2"

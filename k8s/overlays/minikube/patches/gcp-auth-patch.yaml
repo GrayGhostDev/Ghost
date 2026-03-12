@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: ghost-backend
+spec:
+  template:
+    spec:
+      containers:
+        - name: backend
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/adc.json
+            - name: GCP_SECRET_PROJECT
+              value: sylvan-flight-476922-m7
+          volumeMounts:
+            - name: gcp-adc
+              mountPath: /var/secrets/google
+              readOnly: true
+      volumes:
+        - name: gcp-adc
+          hostPath:
+            path: /host-adc
+            type: DirectoryOrCreate

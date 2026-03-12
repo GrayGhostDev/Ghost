@@ -1,19 +1,25 @@
+# Ghost Backend — Level 2 Core Framework
+# Canonical location: ~/Business/GGDC-System/ghost-backend/
+# Phase 4+ — joined ggdc-shared-net for Level 2 observability + Traefik routing
+
+name: "ghost-backend"
+
 services:
   backend:
     build: 
       context: .
       dockerfile: Dockerfile
     image: ghost-backend:latest
-    container_name: ghost-backend
+    container_name: ghost-be-api
     ports:
       # Bind only to localhost for security. Use reverse proxy for external access
-      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:8801:8801"
     environment:
       # Application settings
       - ENVIRONMENT=development
       - DEBUG=true
       - API_HOST=0.0.0.0
-      - API_PORT=8888
+      - API_PORT=8801
       - WORKERS=1
       
       # Database configuration
@@ -26,11 +32,17 @@ services:
       # Redis configuration
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
       
       # Security keys (provide via .env file)
       - JWT_SECRET=${JWT_SECRET}
       - API_KEY=${API_KEY}
       
+      # OpenTelemetry (Level 2 Jaeger via ggdc-shared-net)
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - OTEL_SERVICE_NAME=ghost-backend
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=ggdc,deployment.environment=development
+
       # External services
       - ANTHROPIC_ADMIN_API_KEY=${ANTHROPIC_ADMIN_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -51,18 +63,34 @@ services:
       - ./src:/app/src:ro
       - ./examples:/app/examples:ro
     networks:
-      - ghost-network
+      - ghost-backend-net
+      - ggdc-shared-net
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.ghost-backend.rule: "Host(`api.ghost.local`)"
+      traefik.http.routers.ghost-backend.entrypoints: "web"
+      traefik.http.services.ghost-backend.loadbalancer.server.port: "8801"
+      com.ggdc.project: "GGDC-System"
+      com.ggdc.service: "ghost-be-api"
+      com.ggdc.level: "2"
+      com.ggdc.scrape: "true"
+      com.ggdc.metrics_port: "8801"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8801/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    
+
   postgres:
-    image: postgres:16-alpine
-    container_name: ghost-postgres
+    image: postgres:16.12-alpine
+    container_name: ghost-be-db
     environment:
       - POSTGRES_DB=ghost
       - POSTGRES_USER=postgres
@@ -75,8 +103,13 @@ services:
       - postgres_data:/var/lib/postgresql/data
       # Optional: mount init scripts
       # - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
-      - ghost-network
+      - ghost-backend-net
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d ghost"]
@@ -87,15 +120,20 @@ services:
   
   redis:
     image: redis:7-alpine
-    container_name: ghost-redis
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    container_name: ghost-be-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-changeme}
     ports:
       # Only expose to localhost. Internal services use network  
       - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
-      - ghost-network
+      - ghost-backend-net
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -104,15 +142,86 @@ services:
       retries: 5
       start_period: 30s
 
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: ghost-be-pg-exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://postgres:${DB_PASSWORD:-ghost_password}@postgres:5432/ghost?sslmode=disable
+    ports:
+      - "127.0.0.1:9187:9187"
+    networks:
+      - ghost-backend-net
+      - ggdc-shared-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      com.ggdc.project: "GGDC-System"
+      com.ggdc.service: "ghost-be-pg-exporter"
+      com.ggdc.level: "2"
+      com.ggdc.scrape: "true"
+      com.ggdc.metrics_port: "9187"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9187/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.66.0-alpine
+    container_name: ghost-be-redis-exporter
+    environment:
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+    ports:
+      - "127.0.0.1:9188:9121"
+    networks:
+      - ghost-backend-net
+      - ggdc-shared-net
+    depends_on:
+      redis:
+        condition: service_healthy
+    labels:
+      com.ggdc.project: "GGDC-System"
+      com.ggdc.service: "ghost-be-redis-exporter"
+      com.ggdc.level: "2"
+      com.ggdc.scrape: "true"
+      com.ggdc.metrics_port: "9121"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:9121/metrics || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 networks:
-  ghost-network:
+  ghost-backend-net:
+    name: ghost-backend-net
     driver: bridge
     ipam:
       config:
         - subnet: 172.28.0.0/16
+  ggdc-shared-net:
+    external: true
+    name: ggdc-shared-net
 
 volumes:
   postgres_data:
+    name: ghost-be-postgres-data
     driver: local
   redis_data:
+    name: ghost-be-redis-data
     driver: local

@@ -78,31 +78,31 @@ def wait_for_redis(max_retries=30, retry_interval=2):
 def run_migrations():
     """Run database migrations if alembic is configured."""
     alembic_ini = Path('/app/alembic.ini')
-    if alembic_ini.exists():
-        print("🔄 Running database migrations...")
-        try:
-            # Temporarily skip migrations until models are properly set up
-            print("⚠️  Migrations temporarily disabled for initial setup")
-            return True
-            
-            # Original migration code (will be re-enabled later)
-            # result = subprocess.run(
-            #     ['alembic', 'upgrade', 'head'],
-            #     capture_output=True,
-            #     text=True,
-            #     cwd='/app'
-            # )
-            # if result.returncode == 0:
-            #     print("✅ Migrations completed successfully")
-            #     return True
-            # else:
-            #     print(f"⚠️  Migration failed: {result.stderr}")
-            #     return False
-        except FileNotFoundError:
-            print("⚠️  Alembic not installed, skipping migrations")
-            return True
-    else:
+    if not alembic_ini.exists():
         print("ℹ️  No alembic.ini found, skipping migrations")
+        return True
+
+    # Allow disabling migrations via env var (e.g. for testing)
+    if os.environ.get('SKIP_MIGRATIONS', '').lower() in ('true', '1', 'yes'):
+        print("⚠️  Migrations skipped (SKIP_MIGRATIONS=true)")
+        return True
+
+    print("🔄 Running database migrations...")
+    try:
+        result = subprocess.run(
+            ['alembic', 'upgrade', 'head'],
+            capture_output=True,
+            text=True,
+            cwd='/app'
+        )
+        if result.returncode == 0:
+            print("✅ Migrations completed successfully")
+            return True
+        else:
+            print(f"⚠️  Migration failed: {result.stderr}")
+            return False
+    except FileNotFoundError:
+        print("⚠️  Alembic not installed, skipping migrations")
         return True
 
 def create_test_app():
@@ -174,7 +174,7 @@ def start_application():
     
     # Get host and port from environment or config
     host = os.environ.get('API_HOST', '0.0.0.0')  # 0.0.0.0 is OK inside container
-    port = int(os.environ.get('API_PORT', '8888'))
+    port = int(os.environ.get('API_PORT', '8801'))
     workers = int(os.environ.get('WORKERS', '1'))
     
     print(f"""

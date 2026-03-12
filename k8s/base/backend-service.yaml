@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: ghost-backend
+  labels:
+    app: backend
+    app.kubernetes.io/name: ghost-backend
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8801
+      targetPort: 8801
+      protocol: TCP
+      name: http
+  selector:
+    app: backend

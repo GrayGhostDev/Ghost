@@ -42,25 +42,13 @@ jobs:
         echo "# Ghost Backend Framework Release" > RELEASE_NOTES.md
         echo "" >> RELEASE_NOTES.md
         echo "## What's Changed" >> RELEASE_NOTES.md
-        git log --oneline --since="$(git describe --tags --abbrev=0 HEAD^ || echo '1 month ago')"..HEAD >> RELEASE_NOTES.md || echo "Initial release" >> RELEASE_NOTES.md
+        git log --oneline --since="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '1 month ago')"..HEAD >> RELEASE_NOTES.md || echo "Initial release" >> RELEASE_NOTES.md
 
     - name: Create GitHub Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ github.ref_name }}
-        release_name: Ghost Backend Framework ${{ github.ref_name }}
         body_path: RELEASE_NOTES.md
-        draft: false
-        prerelease: false
-
-    - name: Upload Release Assets
-      uses: actions/upload-release-asset@v1
+        files: dist/*
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: dist/
-        asset_name: ghost-backend-framework-${{ github.ref_name }}.tar.gz
-        asset_content_type: application/gzip

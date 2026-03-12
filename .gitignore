@@ -71,6 +71,7 @@ venv.bak/
 # IDEs and editors
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
@@ -273,3 +274,20 @@ tunnel.sh
 deploy-prod.sh
 deploy-staging.sh
 rsync-deploy.sh
+
+# ============================================
+# Kubernetes / Minikube / Skaffold
+# ============================================
+
+# Skaffold cache and state
+.skaffold/
+
+# Local overlay patches (user-specific overrides)
+k8s/overlays/minikube/patches/*.local.yaml
+
+# Kubeconfig files
+*.kubeconfig
+
+# GCP service account keys (NEVER commit)
+*-key.json
+application_default_credentials.json

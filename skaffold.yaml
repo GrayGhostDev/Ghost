@@ -1,0 +1,51 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: ghost-backend
+
+build:
+  artifacts:
+    - image: ghost-backend
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "src/**/*.py"
+            dest: /app/src
+  local:
+    push: false
+    useBuildkit: true
+
+deploy:
+  kustomize:
+    paths:
+      - k8s/overlays/minikube
+
+portForward:
+  - resourceType: service
+    resourceName: backend
+    namespace: ghost-backend
+    port: 8801
+    localPort: 8801
+  - resourceType: service
+    resourceName: postgres
+    namespace: ghost-backend
+    port: 5432
+    localPort: 5433
+  - resourceType: service
+    resourceName: redis
+    namespace: ghost-backend
+    port: 6379
+    localPort: 6380
+
+profiles:
+  - name: production
+    build:
+      artifacts:
+        - image: us-east1-docker.pkg.dev/sylvan-flight-476922-m7/ggdc-images/ghost-backend
+          docker:
+            dockerfile: Dockerfile.prod
+    deploy:
+      kustomize:
+        paths:
+          - k8s/overlays/production
