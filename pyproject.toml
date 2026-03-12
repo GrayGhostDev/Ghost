@@ -89,10 +89,10 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/grayghostdev/ghost-backend"
-Documentation = "https://github.com/grayghostdev/ghost-backend/wiki"
-Repository = "https://github.com/grayghostdev/ghost-backend.git"
-Issues = "https://github.com/grayghostdev/ghost-backend/issues"
+Homepage = "https://github.com/GrayGhostDev/Ghost"
+Documentation = "https://github.com/GrayGhostDev/Ghost/wiki"
+Repository = "https://github.com/GrayGhostDev/Ghost.git"
+Issues = "https://github.com/GrayGhostDev/Ghost/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
