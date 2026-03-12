@@ -5,6 +5,7 @@ Centralized logging setup using loguru for enhanced logging capabilities.
 Supports file rotation, structured logging, and multiple output formats.
 """
 
+import json
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -19,32 +20,61 @@ class LoggingManager:
         self._configured = False
         self._loggers: Dict[str, Any] = {}
     
+    @staticmethod
+    def _json_sink(message):
+        """Serialize log record as JSON for Loki/Promtail ingestion."""
+        record = message.record
+        log_entry = {
+            "timestamp": record["time"].isoformat(),
+            "level": record["level"].name,
+            "logger": record["extra"].get("name", "ghost"),
+            "module": record["module"],
+            "function": record["function"],
+            "line": record["line"],
+            "message": record["message"],
+            "service": "ghost-backend",
+        }
+        if record["exception"] is not None:
+            log_entry["exception"] = str(record["exception"])
+        sys.stderr.write(json.dumps(log_entry) + "\n")
+
     def setup(self, config: Optional[Any] = None) -> None:
         """Set up logging configuration."""
         if self._configured:
             return
-        
+
         if config is None:
             config = get_config().logging
-        
+
         # Remove default logger
         logger.remove()
-        
-        # Add console handler with colors
-        logger.add(
-            sys.stderr,
-            level=config.level,
-            format=config.format,
-            colorize=True,
-            backtrace=True,
-            diagnose=True,
-        )
-        
+
+        json_mode = getattr(config, "json_output", False)
+
+        if json_mode:
+            # Structured JSON output for Loki/Promtail
+            logger.add(
+                self._json_sink,
+                level=config.level,
+                backtrace=True,
+                diagnose=False,
+            )
+        else:
+            # Human-readable console output
+            logger.add(
+                sys.stderr,
+                level=config.level,
+                format=config.format,
+                colorize=True,
+                backtrace=True,
+                diagnose=True,
+            )
+
         # Add file handler if specified
         if config.file_path:
             log_path = Path(config.file_path)
             log_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             logger.add(
                 log_path,
                 level=config.level,
@@ -55,7 +85,7 @@ class LoggingManager:
                 backtrace=True,
                 diagnose=True,
             )
-        
+
         self._configured = True
     
     def get_logger(self, name: str) -> Any:

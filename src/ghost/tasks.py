@@ -17,10 +17,8 @@ import threading
 import schedule
 import queue
 from functools import wraps
-import json
 from .config import get_config
 from .logging import get_logger, LoggerMixin
-from .database import get_db_manager
 
 
 class TaskStatus(Enum):

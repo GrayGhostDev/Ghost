@@ -261,6 +261,96 @@ class SMTPProvider(LoggerMixin):
             return False
 
 
+class SendGridProvider(LoggerMixin):
+    """SendGrid email provider using v3 API via httpx."""
+
+    SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
+
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+
+    def _build_payload(self, message: EmailMessage) -> Dict[str, Any]:
+        """Convert EmailMessage to SendGrid v3 JSON format."""
+        payload: Dict[str, Any] = {
+            "personalizations": [
+                {
+                    "to": [{"email": addr} for addr in message.to],
+                }
+            ],
+            "subject": message.subject,
+            "content": [],
+        }
+
+        if message.cc:
+            payload["personalizations"][0]["cc"] = [{"email": addr} for addr in message.cc]
+        if message.bcc:
+            payload["personalizations"][0]["bcc"] = [{"email": addr} for addr in message.bcc]
+
+        from_obj: Dict[str, str] = {"email": message.from_email or "noreply@example.com"}
+        if message.from_name:
+            from_obj["name"] = message.from_name
+        payload["from"] = from_obj
+
+        if message.reply_to:
+            payload["reply_to"] = {"email": message.reply_to}
+
+        if message.body:
+            payload["content"].append({"type": "text/plain", "value": message.body})
+        if message.html_body:
+            payload["content"].append({"type": "text/html", "value": message.html_body})
+
+        return payload
+
+    def send(self, message: EmailMessage) -> bool:
+        """Send email via SendGrid API (sync)."""
+        try:
+            import httpx
+
+            payload = self._build_payload(message)
+            response = httpx.post(
+                self.SENDGRID_API_URL,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=30,
+            )
+            if response.status_code in (200, 201, 202):
+                self.logger.info(f"Email sent via SendGrid to {', '.join(message.to)}")
+                return True
+            self.logger.error(f"SendGrid error: {response.status_code} {response.text}")
+            return False
+        except Exception as e:
+            self.logger.error(f"Failed to send email via SendGrid: {e}")
+            return False
+
+    async def send_async(self, message: EmailMessage) -> bool:
+        """Send email via SendGrid API (async)."""
+        try:
+            import httpx
+
+            payload = self._build_payload(message)
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.SENDGRID_API_URL,
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=30,
+                )
+            if response.status_code in (200, 201, 202):
+                self.logger.info(f"Email sent via SendGrid (async) to {', '.join(message.to)}")
+                return True
+            self.logger.error(f"SendGrid error: {response.status_code} {response.text}")
+            return False
+        except Exception as e:
+            self.logger.error(f"Failed to send async email via SendGrid: {e}")
+            return False
+
+
 class EmailManager(LoggerMixin):
     """Manages email sending with multiple providers."""
     
@@ -294,8 +384,11 @@ class EmailManager(LoggerMixin):
                 use_ssl=self.smtp_config.get('use_ssl', config.get('email.smtp.use_ssl', False))
             )
         elif self.provider == EmailProvider.SENDGRID:
-            # Would require sendgrid package
-            self.logger.warning("SendGrid provider not yet implemented")
+            api_key = os.getenv("SENDGRID_API_KEY", "")
+            if api_key:
+                self.sendgrid = SendGridProvider(api_key=api_key)
+            else:
+                self.logger.warning("SENDGRID_API_KEY not set — SendGrid provider unavailable")
         elif self.provider == EmailProvider.AWS_SES:
             # Would require boto3 package
             self.logger.warning("AWS SES provider not yet implemented")
@@ -313,21 +406,25 @@ class EmailManager(LoggerMixin):
         """
         if self.provider == EmailProvider.SMTP and hasattr(self, 'smtp'):
             return self.smtp.send(message)
+        elif self.provider == EmailProvider.SENDGRID and hasattr(self, 'sendgrid'):
+            return self.sendgrid.send(message)
         else:
             self.logger.error(f"Provider {self.provider} not available")
             return False
-    
+
     async def send_async(self, message: EmailMessage) -> bool:
         """Send an email message asynchronously.
-        
+
         Args:
             message: Email message to send
-            
+
         Returns:
             True if sent successfully
         """
         if self.provider == EmailProvider.SMTP and hasattr(self, 'smtp'):
             return await self.smtp.send_async(message)
+        elif self.provider == EmailProvider.SENDGRID and hasattr(self, 'sendgrid'):
+            return await self.sendgrid.send_async(message)
         else:
             self.logger.error(f"Provider {self.provider} not available")
             return False

@@ -21,7 +21,6 @@ from PIL import Image
 import magic
 from .config import get_config
 from .logging import get_logger, LoggerMixin
-from .utils import StringUtils, HashUtils
 
 
 class StorageProvider(Enum):
@@ -228,9 +227,15 @@ class FileValidator:
             
             return True, detected_type
             
-        except Exception:
-            # If magic is not available, skip validation
+        except ImportError:
+            # python-magic not installed — fail closed in production, open in dev
+            from .config import get_config
+            if get_config().environment == "production":
+                return False, None
             return True, None
+        except Exception:
+            # Unexpected error — fail closed
+            return False, None
 
 
 class LocalStorageProvider(LoggerMixin):
@@ -477,6 +482,120 @@ class LocalStorageProvider(LoggerMixin):
             return None
 
 
+class S3StorageProvider(LoggerMixin):
+    """AWS S3 storage provider."""
+
+    def __init__(self, bucket: str, region: str = "us-east-1",
+                 access_key: Optional[str] = None, secret_key: Optional[str] = None,
+                 endpoint_url: Optional[str] = None,
+                 public_url_base: Optional[str] = None):
+        try:
+            import boto3
+            self._boto3 = boto3
+        except ImportError:
+            raise ImportError("boto3 is required for S3StorageProvider. Install with: pip install boto3")
+
+        self.bucket = bucket
+        self.region = region
+        self.public_url_base = public_url_base or f"https://{bucket}.s3.{region}.amazonaws.com"
+
+        session_kwargs = {}
+        if access_key and secret_key:
+            session_kwargs["aws_access_key_id"] = access_key
+            session_kwargs["aws_secret_access_key"] = secret_key
+
+        client_kwargs = {"region_name": region}
+        if endpoint_url:
+            client_kwargs["endpoint_url"] = endpoint_url
+
+        self.client = boto3.client("s3", **session_kwargs, **client_kwargs)
+
+    def _generate_key(self, original_name: str, file_type: FileType) -> str:
+        """Generate S3 object key: {file_type}/{YYYY/MM/DD}/{uuid}.{ext}"""
+        ext = Path(original_name).suffix
+        date_path = datetime.now(timezone.utc).strftime("%Y/%m/%d")
+        return f"{file_type.value}/{date_path}/{uuid.uuid4().hex}{ext}"
+
+    def save(self, file_data: BinaryIO, original_name: str,
+             file_type: Optional[FileType] = None) -> UploadedFile:
+        """Save file to S3."""
+        if file_type is None:
+            file_type = FileValidator.get_file_type(original_name)
+
+        key = self._generate_key(original_name, file_type)
+
+        file_data.seek(0)
+        content = file_data.read()
+        file_hash = hashlib.sha256(content).hexdigest()
+        file_size = len(content)
+        content_type, _ = mimetypes.guess_type(original_name)
+        content_type = content_type or "application/octet-stream"
+
+        file_data.seek(0)
+        self.client.put_object(
+            Bucket=self.bucket,
+            Key=key,
+            Body=file_data,
+            ContentType=content_type,
+        )
+
+        metadata = FileMetadata(
+            filename=original_name,
+            size=file_size,
+            content_type=content_type,
+            file_type=file_type,
+            extension=Path(original_name).suffix,
+            hash=file_hash,
+        )
+
+        uploaded_file = UploadedFile(
+            id=uuid.uuid4().hex,
+            original_name=original_name,
+            stored_name=Path(key).name,
+            path=key,
+            url=f"{self.public_url_base}/{key}",
+            size=file_size,
+            content_type=content_type,
+            file_type=file_type,
+            hash=file_hash,
+            provider=StorageProvider.S3,
+            metadata=metadata,
+        )
+
+        self.logger.info(f"File saved to S3: {original_name} -> s3://{self.bucket}/{key}")
+        return uploaded_file
+
+    async def save_async(self, file_data: BinaryIO, original_name: str,
+                         file_type: Optional[FileType] = None) -> UploadedFile:
+        """Save file to S3 asynchronously (via executor)."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.save, file_data, original_name, file_type)
+
+    def delete(self, key: str) -> bool:
+        """Delete file from S3."""
+        try:
+            self.client.delete_object(Bucket=self.bucket, Key=key)
+            self.logger.info(f"File deleted from S3: s3://{self.bucket}/{key}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to delete from S3: {e}")
+            return False
+
+    def get(self, key: str) -> Optional[bytes]:
+        """Get file content from S3."""
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=key)
+            return response["Body"].read()
+        except Exception as e:
+            self.logger.error(f"Failed to read from S3: {e}")
+            return None
+
+    async def get_async(self, key: str) -> Optional[bytes]:
+        """Get file content from S3 asynchronously."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.get, key)
+
+
 class ImageProcessor(LoggerMixin):
     """Image processing utilities."""
     
@@ -608,9 +727,18 @@ class StorageManager(LoggerMixin):
                 public_url_base=self.config.get('public_url_base', '/files')
             )
         elif self.provider == StorageProvider.S3:
-            # Would require boto3
-            self.logger.warning("S3 provider not yet implemented")
-            self.storage = None
+            try:
+                self.storage = S3StorageProvider(
+                    bucket=self.config.get("bucket", os.getenv("AWS_S3_BUCKET", "")),
+                    region=self.config.get("region", os.getenv("AWS_DEFAULT_REGION", "us-east-1")),
+                    access_key=self.config.get("access_key", os.getenv("AWS_ACCESS_KEY_ID")),
+                    secret_key=self.config.get("secret_key", os.getenv("AWS_SECRET_ACCESS_KEY")),
+                    endpoint_url=self.config.get("endpoint_url", os.getenv("AWS_ENDPOINT_URL")),
+                    public_url_base=self.config.get("public_url_base"),
+                )
+            except ImportError:
+                self.logger.warning("boto3 not installed — S3 provider unavailable")
+                self.storage = None
         elif self.provider == StorageProvider.AZURE:
             # Would require azure-storage-blob
             self.logger.warning("Azure provider not yet implemented")
