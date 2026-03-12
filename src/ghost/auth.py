@@ -8,7 +8,7 @@ Supports role-based access control (RBAC) and API key authentication.
 import jwt
 import bcrypt
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Protocol, runtime_checkable
 from dataclasses import dataclass
 from enum import Enum
 from .config import get_config
@@ -330,6 +330,24 @@ def require_api_key():
     return decorator
 
 
+@runtime_checkable
+class AuthProvider(Protocol):
+    """Pluggable authentication provider protocol.
+
+    Level 3 projects (e.g. Clerk, Auth0) can implement this protocol
+    and register via set_auth_provider() to replace the default AuthManager.
+
+    AuthManager already satisfies this protocol — no changes needed for
+    projects using the built-in JWT auth.
+    """
+
+    def verify_token(self, token: str) -> Optional[TokenData]: ...
+
+    def create_access_token(
+        self, user: User, expires_delta: Optional[timedelta] = None
+    ) -> str: ...
+
+
 # Global auth manager instance
 _auth_manager: Optional[AuthManager] = None
 
@@ -340,3 +358,16 @@ def get_auth_manager() -> AuthManager:
     if _auth_manager is None:
         _auth_manager = AuthManager()
     return _auth_manager
+
+
+def set_auth_provider(provider: AuthProvider) -> None:
+    """Replace the global auth manager with a custom provider.
+
+    The provider must satisfy the AuthProvider protocol
+    (verify_token and create_access_token methods).
+
+    Args:
+        provider: An object implementing the AuthProvider protocol.
+    """
+    global _auth_manager
+    _auth_manager = provider  # type: ignore[assignment]

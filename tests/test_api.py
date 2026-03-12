@@ -151,15 +151,94 @@ class TestMetricsEndpoint:
 
 
 class TestTokenEndpoint:
-    def test_token_stub(self, client):
-        r = client.post("/token")
-        assert r.status_code == 501
+    def test_token_refresh_missing_body(self, client):
+        r = client.post("/token", json={})
+        assert r.status_code == 400
+
+    def test_token_refresh_invalid_token(self, client):
+        r = client.post("/token", json={"refresh_token": "bad.token.here"})
+        assert r.status_code == 401
+
+    def test_token_refresh_success(self, client, test_config):
+        from src.ghost.auth import AuthManager, User, UserRole
+
+        mgr = AuthManager(test_config.auth)
+        user = User(
+            id="user-1", username="testuser", email="test@example.com",
+            roles=[UserRole.USER],
+        )
+        refresh = mgr.create_refresh_token(user)
+
+        r = client.post("/token", json={"refresh_token": refresh})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert "access_token" in body["data"]
+        assert body["data"]["token_type"] == "bearer"
 
 
 class TestLoginEndpoint:
-    def test_login_stub(self, client):
-        r = client.post("/login")
-        assert r.status_code == 501
+    def test_login_missing_fields(self, client):
+        r = client.post("/login", json={"username": "x"})
+        assert r.status_code == 400
+
+    def test_login_db_not_available(self, client):
+        """Login falls back to 501 when DB connection fails."""
+        import sys, types
+
+        fake_models = types.ModuleType("src.ghost.models")
+
+        class FakeUserRepo:
+            def __init__(self, session):
+                pass
+            def authenticate(self, u, p):
+                raise RuntimeError("no db")
+
+        fake_models.UserRepository = FakeUserRepo
+        fake_db = types.ModuleType("src.ghost.database")
+        mock_db_mgr = MagicMock()
+        mock_db_mgr.get_session.side_effect = RuntimeError("no db")
+        fake_db.get_db_manager = MagicMock(return_value=mock_db_mgr)
+
+        with patch.dict(sys.modules, {
+            "src.ghost.models": fake_models,
+            "src.ghost.database": fake_db,
+        }):
+            r = client.post("/login", json={"username": "x", "password": "y"})
+            assert r.status_code == 501
+
+    def test_login_invalid_credentials(self, client):
+        """Login returns 401 when authenticate returns None."""
+        import sys, types
+        from contextlib import contextmanager
+
+        fake_models = types.ModuleType("src.ghost.models")
+
+        class FakeUserRepo:
+            def __init__(self, session):
+                pass
+            def authenticate(self, u, p):
+                return None
+
+        fake_models.UserRepository = FakeUserRepo
+
+        fake_db = types.ModuleType("src.ghost.database")
+        mock_session = MagicMock()
+
+        @contextmanager
+        def fake_get_session():
+            yield mock_session
+
+        mock_db_mgr = MagicMock()
+        mock_db_mgr.get_session = fake_get_session
+        fake_db.get_db_manager = MagicMock(return_value=mock_db_mgr)
+
+        with patch.dict(sys.modules, {
+            "src.ghost.models": fake_models,
+            "src.ghost.database": fake_db,
+        }):
+            r = client.post("/login", json={"username": "bad", "password": "bad"})
+            assert r.status_code == 401
 
 
 class TestForgotPasswordEndpoint:
@@ -229,12 +308,40 @@ class TestRequestHeaders:
 # Exception handlers
 # ──────────────────────────────────────────────
 
+class TestWebSocketRoutes:
+    def test_websocket_routes_registered(self, test_config):
+        """WebSocket routes are registered when enable_websockets=True."""
+        mgr = APIManager(test_config.api)
+        app = mgr.create_app(title="WS Test", enable_websockets=True)
+        route_paths = [r.path for r in app.routes]
+        assert "/ws/{frontend_type}" in route_paths
+        assert "/api/v1/websocket/stats" in route_paths
+
+    def test_websocket_routes_disabled(self, test_config):
+        """WebSocket routes are NOT registered when enable_websockets=False."""
+        mgr = APIManager(test_config.api)
+        app = mgr.create_app(title="No WS", enable_websockets=False)
+        route_paths = [r.path for r in app.routes]
+        assert "/ws/{frontend_type}" not in route_paths
+
+    def test_websocket_stats_endpoint(self, test_config):
+        """GET /api/v1/websocket/stats returns connection stats."""
+        mgr = APIManager(test_config.api)
+        app = mgr.create_app(title="WS Stats")
+        c = TestClient(app)
+        r = c.get("/api/v1/websocket/stats")
+        assert r.status_code == 200
+        data = r.json()
+        assert "total_connections" in data
+
+
 class TestExceptionHandlers:
     def test_http_exception_format(self, client):
-        r = client.post("/token")  # returns 501
+        # /token with empty body returns 400 — validates exception handler format
+        r = client.post("/token", json={})
         body = r.json()
         assert body["success"] is False
-        assert body["error"]["code"] == 501
+        assert body["error"]["code"] == 400
 
     def test_general_exception_handler(self, test_config):
         """Test that unhandled exceptions return 500 JSON response."""

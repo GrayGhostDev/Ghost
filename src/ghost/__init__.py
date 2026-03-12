@@ -27,7 +27,7 @@ except ImportError:
     _DATABASE_AVAILABLE = False
 
 try:
-    from .auth import AuthManager, User, UserRole, get_auth_manager
+    from .auth import AuthManager, User, UserRole, get_auth_manager, AuthProvider, set_auth_provider
     _AUTH_AVAILABLE = True
 except ImportError:
     _AUTH_AVAILABLE = False
@@ -93,9 +93,11 @@ if _DATABASE_AVAILABLE:
 if _AUTH_AVAILABLE:
     __all__.extend([
         "AuthManager",
+        "AuthProvider",
         "User",
-        "UserRole", 
-        "get_auth_manager"
+        "UserRole",
+        "get_auth_manager",
+        "set_auth_provider",
     ])
 
 if _API_AVAILABLE:

@@ -79,31 +79,69 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment || 'production' }}
 
+    # Ghost Backend can be deployed two ways:
+    # 1. As a standalone service (Cloud Run) — what this workflow does
+    # 2. As a pip-installable library — published via PyPI (separate workflow)
+    #
+    # Required secrets:
+    #   GCP_PROJECT_ID          — GCP project for Cloud Run
+    #   GCP_SA_KEY              — Service account JSON key (or use Workload Identity below)
+    #   GCP_REGION              — e.g. us-east1
+    #   DEPLOY_URL              — Base URL of deployed service for smoke tests
+    #
+    # For Workload Identity Federation (preferred over SA key):
+    #   GCP_WORKLOAD_IDENTITY_PROVIDER — projects/<num>/locations/global/workloadIdentityPools/...
+    #   GCP_SERVICE_ACCOUNT            — deploy@<project>.iam.gserviceaccount.com
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
     - name: Deploy to staging
-      if: ${{ inputs.environment == 'staging' || github.event_name == 'workflow_dispatch' }}
-      run: |
-        echo "Deploying image ${{ needs.build-and-push.outputs.image_tag }} to staging"
-        # TODO: Add actual staging deployment commands (e.g. SSH, kubectl, render deploy)
-        echo "Staging deployment completed"
+      if: ${{ inputs.environment == 'staging' }}
+      id: deploy-staging
+      uses: google-github-actions/deploy-cloudrun@v2
+      with:
+        service: ghost-backend-staging
+        region: ${{ secrets.GCP_REGION || 'us-east1' }}
+        image: ${{ needs.build-and-push.outputs.image_tag }}
+        flags: '--port=8801 --memory=512Mi --cpu=1 --max-instances=3 --allow-unauthenticated'
 
     - name: Deploy to production
       if: ${{ inputs.environment == 'production' || github.event_name == 'release' }}
-      run: |
-        echo "Deploying image ${{ needs.build-and-push.outputs.image_tag }} to production"
-        # TODO: Add actual production deployment commands
-        echo "Production deployment completed"
+      id: deploy-production
+      uses: google-github-actions/deploy-cloudrun@v2
+      with:
+        service: ghost-backend
+        region: ${{ secrets.GCP_REGION || 'us-east1' }}
+        image: ${{ needs.build-and-push.outputs.image_tag }}
+        flags: '--port=8801 --memory=1Gi --cpu=2 --max-instances=10 --no-allow-unauthenticated'
 
     - name: Post-deploy smoke test
       run: |
-        # Wait for service to start, then verify health endpoint
-        echo "Running post-deploy smoke test..."
-        # TODO: Replace with actual deployed URL once deployment target is configured
-        # Example: curl -sf --retry 5 --retry-delay 10 https://api.ghost.local/health
-        echo "Smoke test placeholder — configure DEPLOY_URL secret for real checks"
+        DEPLOY_URL="${{ secrets.DEPLOY_URL }}"
+        if [ -z "$DEPLOY_URL" ]; then
+          # Fall back to Cloud Run URL from deploy step
+          DEPLOY_URL="${{ steps.deploy-staging.outputs.url || steps.deploy-production.outputs.url }}"
+        fi
+
+        if [ -z "$DEPLOY_URL" ]; then
+          echo "::warning::No DEPLOY_URL available — skipping smoke test"
+          exit 0
+        fi
+
+        echo "Smoke testing ${DEPLOY_URL}/health ..."
+        curl -sf --retry 5 --retry-delay 10 --retry-all-errors "${DEPLOY_URL}/health" \
+          | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['success'], 'Health check failed'; print('Health OK:', d['data']['api'])"
 
     - name: Notify deployment status
       uses: actions/github-script@v7

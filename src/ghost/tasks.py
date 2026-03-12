@@ -495,7 +495,7 @@ class TaskScheduler(LoggerMixin):
             elif len(parts) == 3 and parts[2] in ['minutes', 'hours', 'days', 'weeks']:
                 # "every 5 minutes", etc.
                 count = int(parts[1])
-                interval = parts[2].rstrip('s')
+                interval = parts[2] if parts[2].endswith('s') else parts[2] + 's'
                 job = getattr(schedule.every(count), interval)
             else:
                 raise ValueError(f"Invalid schedule string: {schedule_str}")

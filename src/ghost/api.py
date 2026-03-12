@@ -157,6 +157,7 @@ class APIManager(LoggerMixin):
         title: Optional[str] = None,
         description: str = "Ghost Backend API",
         version: str = "1.0.0",
+        enable_websockets: bool = True,
         **kwargs,
     ) -> FastAPI:
         """Create and configure FastAPI application."""
@@ -171,6 +172,16 @@ class APIManager(LoggerMixin):
         self._setup_middleware(app)
         self._setup_exception_handlers(app)
         self._setup_routes(app)
+
+        # Wire WebSocket routes if enabled
+        if enable_websockets:
+            try:
+                from .websocket import add_websocket_routes
+
+                add_websocket_routes(app)
+                self.logger.info("WebSocket routes registered")
+            except ImportError:
+                self.logger.debug("WebSocket module not available, skipping")
 
         # OpenTelemetry auto-instrumentation
         if OTEL_AVAILABLE:
@@ -363,20 +374,115 @@ class APIManager(LoggerMixin):
         @app.post("/token")
         @self.limiter.limit("5/minute")
         async def token(request: Request):
-            """Token endpoint — rate limited to prevent brute force."""
-            raise HTTPException(
-                status_code=501,
-                detail="Token endpoint not yet implemented. Use project-specific auth routes.",
+            """Refresh access token using a valid refresh token."""
+            try:
+                body = await request.json()
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+            refresh_token = body.get("refresh_token")
+            if not refresh_token:
+                raise HTTPException(
+                    status_code=400, detail="refresh_token is required"
+                )
+
+            new_access = self.auth_manager.refresh_access_token(refresh_token)
+            if not new_access:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid or expired refresh token",
+                )
+
+            return APIResponse.success(
+                data={"access_token": new_access, "token_type": "bearer"},
+                message="Token refreshed",
             )
 
         @app.post("/login")
         @self.limiter.limit("5/minute")
         async def login(request: Request):
-            """Login endpoint — rate limited to prevent brute force."""
-            raise HTTPException(
-                status_code=501,
-                detail="Login endpoint not yet implemented. Use project-specific auth routes.",
-            )
+            """Authenticate user and return access + refresh tokens.
+
+            Falls back to 501 if database models are not available.
+            """
+            try:
+                from .models import UserRepository
+                from .database import get_db_manager
+            except ImportError:
+                raise HTTPException(
+                    status_code=501,
+                    detail="Login requires database models. Use project-specific auth routes.",
+                )
+
+            try:
+                body = await request.json()
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+            username = body.get("username")
+            password = body.get("password")
+            if not username or not password:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Both 'username' and 'password' are required",
+                )
+
+            try:
+                db_manager = get_db_manager()
+                with db_manager.get_session() as session:
+                    repo = UserRepository(session)
+                    user = repo.authenticate(username, password)
+
+                    if not user:
+                        raise HTTPException(
+                            status_code=401, detail="Invalid credentials"
+                        )
+
+                    if not user.is_active:
+                        raise HTTPException(
+                            status_code=403, detail="Account is disabled"
+                        )
+
+                    if user.is_locked:
+                        raise HTTPException(
+                            status_code=403, detail="Account is temporarily locked"
+                        )
+
+                    # Build auth.User dataclass for token generation
+                    from .auth import User as AuthUser, UserRole
+
+                    role_names = [r.name for r in user.roles] if user.roles else ["user"]
+                    auth_user = AuthUser(
+                        id=str(user.id),
+                        username=user.username,
+                        email=user.email,
+                        roles=[UserRole(r) for r in role_names],
+                    )
+
+                    access_token = self.auth_manager.create_access_token(auth_user)
+                    refresh_token = self.auth_manager.create_refresh_token(auth_user)
+
+                    return APIResponse.success(
+                        data={
+                            "access_token": access_token,
+                            "refresh_token": refresh_token,
+                            "token_type": "bearer",
+                            "user": {
+                                "id": str(user.id),
+                                "username": user.username,
+                                "email": user.email,
+                            },
+                        },
+                        message="Login successful",
+                    )
+            except HTTPException:
+                raise
+            except Exception as e:
+                self.logger.error(f"Login error: {e}")
+                raise HTTPException(
+                    status_code=501,
+                    detail="Login requires a configured database connection.",
+                )
 
         @app.post("/forgot-password")
         @self.limiter.limit("3/minute")
