@@ -39,7 +39,7 @@ click==8.1.7
 rich==13.8.1
 tqdm==4.66.5
 pydantic==2.12.5
-marshmallow==3.22.0
+marshmallow==3.26.2
 
 # Async programming
 asyncio-mqtt==0.16.2
