@@ -66,8 +66,8 @@ RUN mkdir -p /app/logs /app/uploads /app/temp && \
 RUN pip install --no-cache-dir -e . && \
     pip cache purge
 
-# Security: Remove unnecessary packages and files
-RUN apt-get purge -y --auto-remove gcc g++ && \
+# Clean up build artifacts and caches
+RUN apt-get autoremove -y && apt-get clean && \
     rm -rf /root/.cache /tmp/* /var/tmp/*
 
 # Switch to non-root user

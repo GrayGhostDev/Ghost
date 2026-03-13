@@ -36,21 +36,29 @@ target_metadata = Base.metadata
 
 
 def get_database_url():
-    """Get database URL from environment or fallback to config."""
+    """Get database URL from environment or fallback to config.
+
+    Converts postgresql:// to postgresql+psycopg:// to match database.py's
+    use of psycopg v3 (the async-capable driver). Without this conversion,
+    Alembic falls back to psycopg2 which may not be installed.
+    """
     # First try DATABASE_URL environment variable
     database_url = os.environ.get("DATABASE_URL")
-    
-    if database_url:
-        return database_url
-    
-    # Build from individual components
-    db_host = os.environ.get("DB_HOST", "localhost")
-    db_port = os.environ.get("DB_PORT", "5432")
-    db_name = os.environ.get("DB_NAME", "ghost")
-    db_user = os.environ.get("DB_USER", "postgres")
-    db_password = os.environ.get("DB_PASSWORD", "ghost_password")
-    
-    return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+
+    if not database_url:
+        # Build from individual components
+        db_host = os.environ.get("DB_HOST", "localhost")
+        db_port = os.environ.get("DB_PORT", "5432")
+        db_name = os.environ.get("DB_NAME", "ghost")
+        db_user = os.environ.get("DB_USER", "postgres")
+        db_password = os.environ.get("DB_PASSWORD", "ghost_password")
+        database_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+
+    # Match database.py: use psycopg v3 driver
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    return database_url
 
 
 def run_migrations_offline() -> None:

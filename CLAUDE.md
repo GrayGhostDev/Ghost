@@ -389,6 +389,9 @@ Default database pool settings:
 - `config.yaml` - Application configuration
 - `alembic.ini` - Database migration configuration
 - `src/ghost/gcp_secrets.py` - GCP Secret Manager integration (optional)
+- `docker-compose.ci.yml` - CI-only compose stack (backend + postgres + redis)
+- `tools/streamlit_dashboard.py` - Dev-only Streamlit admin dashboard
+- `docs/DATABASE_ARCHITECTURE.md` - Full database topology documentation
 
 ## Skills
 
@@ -410,3 +413,18 @@ Do NOT use port 4318 (HTTP) — the Python SDK (`opentelemetry-exporter-otlp-pro
 ### Docker Compose Exporters
 - `postgres-exporter`: host 9187 → container 9187 (PostgreSQL metrics)
 - `redis-exporter`: host 9188 → container 9121 (Redis metrics)
+
+### Streamlit Dev Dashboard
+- Port: `127.0.0.1:8502` (profile: `dashboard` — not started by default)
+- Start: `make dashboard` or `docker compose --profile dashboard up -d`
+- Shows: health status, DB tables/sessions, Alembic version, Prometheus metrics
+- Source: `tools/streamlit_dashboard.py`
+
+### CI/CD Pipeline
+- **CI** (`ci.yml`): PostgreSQL + Redis service containers, real app Docker test, compose-test job
+- **Deploy** (`deploy.yml`): Workload Identity Federation (not SA key), canary deploy → health check → promote, Artifact Registry, concurrency control
+- **CI Compose** (`docker-compose.ci.yml`): Minimal stack for CI compose-test job
+
+### Database Driver
+Both `database.py` and `migrations/env.py` convert `postgresql://` → `postgresql+psycopg://` (psycopg v3).
+See `docs/DATABASE_ARCHITECTURE.md` for full topology.

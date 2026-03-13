@@ -48,4 +48,5 @@ pipdeptree==2.23.4
 matplotlib==3.9.2
 seaborn==0.13.2
 plotly==5.24.1
-streamlit==1.38.0
+streamlit>=1.55.0
+st-supabase-connection>=1.0.0

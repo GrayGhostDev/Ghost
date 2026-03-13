@@ -17,7 +17,7 @@ PGDATA16 := /opt/local/var/db/postgresql16/defaultdb
 
 .PHONY: db/install db/init db/start db/stop db/status db/create db/migrate-old \
        env/keychain-setup env/envrc env/dotenv-sync tools/verify-path \
-       up down logs ps build test lint format check migrate health \
+       up down logs ps build test test-integration lint format check migrate health dashboard \
        mk/start mk/stop mk/status mk/dashboard mk/deploy mk/delete mk/logs mk/shell mk/health mk/gcp-mount \
        sk/dev sk/run sk/build sk/delete
 
@@ -113,6 +113,19 @@ build:
 test:
 	@python -m pytest tests/ --cov=src/ghost --cov-report=term -q
 
+test-integration:
+	@echo "Starting Docker services for integration tests..."
+	@docker compose up -d postgres redis
+	@echo "Waiting for services..."
+	@sleep 5
+	@DB_HOST=localhost DB_PORT=5433 DB_NAME=ghost DB_USER=postgres DB_PASSWORD=ghost_password \
+	 REDIS_HOST=localhost REDIS_PORT=6380 \
+	 python -m pytest tests/ -m "integration" --cov=src/ghost --cov-report=term -q; \
+	 EXIT_CODE=$$?; \
+	 echo "Stopping Docker services..."; \
+	 docker compose stop postgres redis; \
+	 exit $$EXIT_CODE
+
 lint:
 	@python -m flake8 src/ --max-line-length=120 --count --statistics
 	@python -m mypy src/ghost/ --ignore-missing-imports
@@ -129,6 +142,10 @@ migrate:
 
 health:
 	@curl -sf http://localhost:8801/health | python -m json.tool || echo "Backend not reachable"
+
+dashboard:
+	@docker compose --profile dashboard up -d streamlit-dashboard
+	@echo "Streamlit dashboard started — http://localhost:8502"
 
 openapi:
 	@python tools/scripts/export_openapi.py docs/openapi.json

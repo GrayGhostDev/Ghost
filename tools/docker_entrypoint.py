@@ -15,8 +15,10 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, '/app/src')
 
-def wait_for_database(max_retries=30, retry_interval=2):
+def wait_for_database(max_retries=None, retry_interval=2):
     """Wait for PostgreSQL to be ready."""
+    if max_retries is None:
+        max_retries = int(os.environ.get('MAX_DB_RETRIES', '30'))
     db_host = os.environ.get('DB_HOST', 'postgres')
     db_port = os.environ.get('DB_PORT', '5432')
     db_name = os.environ.get('DB_NAME', 'ghost')
@@ -45,8 +47,10 @@ def wait_for_database(max_retries=30, retry_interval=2):
     print(f"❌ PostgreSQL not available after {max_retries} attempts")
     return False
 
-def wait_for_redis(max_retries=30, retry_interval=2):
+def wait_for_redis(max_retries=None, retry_interval=2):
     """Wait for Redis to be ready."""
+    if max_retries is None:
+        max_retries = int(os.environ.get('MAX_REDIS_RETRIES', '30'))
     redis_host = os.environ.get('REDIS_HOST', 'redis')
     redis_port = os.environ.get('REDIS_PORT', '6379')
     
@@ -173,8 +177,9 @@ def start_application():
         app_module = create_test_app()
     
     # Get host and port from environment or config
+    # Cloud Run sets $PORT at runtime; fall back to API_PORT or 8801
     host = os.environ.get('API_HOST', '0.0.0.0')  # 0.0.0.0 is OK inside container
-    port = int(os.environ.get('API_PORT', '8801'))
+    port = int(os.environ.get('PORT', os.environ.get('API_PORT', '8801')))
     workers = int(os.environ.get('WORKERS', '1'))
     
     print(f"""

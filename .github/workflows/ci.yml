@@ -13,6 +13,31 @@ jobs:
       matrix:
         python-version: ['3.12']
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ghost
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ghost_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ghost"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v4
 
@@ -45,6 +70,15 @@ jobs:
         mypy src/ghost/ --ignore-missing-imports --no-strict-optional
 
     - name: Test with pytest
+      env:
+        DB_HOST: localhost
+        DB_PORT: "5432"
+        DB_NAME: ghost
+        DB_USER: postgres
+        DB_PASSWORD: ghost_password
+        REDIS_HOST: localhost
+        REDIS_PORT: "6379"
+        ENVIRONMENT: testing
       run: |
         pytest tests/ --cov=src/ghost --cov-report=xml --cov-fail-under=50
 
@@ -69,22 +103,78 @@ jobs:
     - name: Build Docker image (prod)
       run: docker build -f Dockerfile.prod -t ghost-backend:test-prod .
 
-    - name: Verify container starts
+    - name: Verify container starts with real app
       run: |
-        docker run -d --name ghost-test \
+        # Start postgres and redis for the container to connect to
+        docker network create ghost-ci-net
+
+        docker run -d --name ci-postgres --network ghost-ci-net \
+          -e POSTGRES_DB=ghost \
+          -e POSTGRES_USER=postgres \
+          -e POSTGRES_PASSWORD=ghost_password \
+          postgres:16-alpine
+
+        docker run -d --name ci-redis --network ghost-ci-net \
+          redis:7-alpine
+
+        # Wait for services
+        sleep 5
+
+        # Start the real app (not a throwaway FastAPI) with fast-fail retries
+        docker run -d --name ghost-test --network ghost-ci-net \
           -e ENVIRONMENT=testing \
           -e SKIP_MIGRATIONS=true \
-          -e DB_HOST=localhost \
+          -e DB_HOST=ci-postgres \
+          -e DB_PORT=5432 \
+          -e DB_NAME=ghost \
+          -e DB_USER=postgres \
+          -e DB_PASSWORD=ghost_password \
+          -e REDIS_HOST=ci-redis \
+          -e REDIS_PORT=6379 \
+          -e MAX_DB_RETRIES=3 \
+          -e MAX_REDIS_RETRIES=3 \
           -p 8801:8801 \
-          ghost-backend:test python -c "
-        from fastapi import FastAPI
-        app = FastAPI()
-        @app.get('/health')
-        def health(): return {'status': 'ok'}
-        import uvicorn
-        uvicorn.run(app, host='0.0.0.0', port=8801)
-        " &
-        sleep 5
-        docker logs ghost-test || true
-        docker stop ghost-test || true
-        docker rm ghost-test || true
+          ghost-backend:test
+
+        # Wait for startup and check health
+        for i in $(seq 1 30); do
+          if curl -sf http://localhost:8801/health >/dev/null 2>&1; then
+            echo "Health check passed on attempt $i"
+            curl -sf http://localhost:8801/health | python3 -m json.tool
+            break
+          fi
+          if [ "$i" -eq 30 ]; then
+            echo "Health check failed after 30 attempts"
+            docker logs ghost-test
+            exit 1
+          fi
+          sleep 2
+        done
+
+        # Cleanup
+        docker stop ghost-test ci-postgres ci-redis || true
+        docker rm ghost-test ci-postgres ci-redis || true
+        docker network rm ghost-ci-net || true
+
+  compose-test:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Start compose stack
+      run: |
+        docker compose -f docker-compose.ci.yml up --build --wait --wait-timeout 120
+
+    - name: Health check
+      run: |
+        curl -sf --retry 5 --retry-delay 5 --retry-all-errors http://localhost:8801/health \
+          | python3 -c "import sys,json; d=json.load(sys.stdin); print('Health OK:', d); assert d.get('success') or d.get('status'), 'Health check failed'"
+
+    - name: Show logs on failure
+      if: failure()
+      run: docker compose -f docker-compose.ci.yml logs
+
+    - name: Cleanup
+      if: always()
+      run: docker compose -f docker-compose.ci.yml down -v

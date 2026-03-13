@@ -1,0 +1,67 @@
+# CI-only compose stack — minimal backend + postgres + redis
+# Used by .github/workflows/ci.yml compose-test job
+# Does NOT join ggdc-shared-net (CI has no Level 2 infra)
+
+name: "ghost-backend-ci"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ghost-be-ci-api
+    ports:
+      - "8801:8801"
+    environment:
+      - ENVIRONMENT=testing
+      - DEBUG=false
+      - API_HOST=0.0.0.0
+      - API_PORT=8801
+      - WORKERS=1
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=ghost
+      - DB_USER=postgres
+      - DB_PASSWORD=ghost_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=changeme
+      - SKIP_MIGRATIONS=true
+      - MAX_DB_RETRIES=3
+      - MAX_REDIS_RETRIES=3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8801/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ghost-be-ci-db
+    environment:
+      - POSTGRES_DB=ghost
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=ghost_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ghost"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: ghost-be-ci-redis
+    command: redis-server --appendonly yes --requirepass changeme
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "changeme", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
