@@ -30,7 +30,7 @@ sqlalchemy==2.0.41
 alembic==1.15.2
 asyncpg==0.30.0
 # psycopg v3 — Python 3.12 compatible (replaces psycopg2-binary)
-psycopg[binary]==3.2.3
+psycopg[binary]==3.3.3
 pymongo==4.10.1
 redis==5.2.1
 
