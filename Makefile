@@ -144,8 +144,11 @@ health:
 	@curl -sf http://localhost:8801/health | python -m json.tool || echo "Backend not reachable"
 
 dashboard:
-	@docker compose --profile dashboard up -d streamlit-dashboard
-	@echo "Streamlit dashboard started — http://localhost:8502"
+	@echo "Starting Streamlit dashboard on http://localhost:8502 ..."
+	@streamlit run tools/streamlit_dashboard.py \
+		--server.port=8502 \
+		--server.address=127.0.0.1 \
+		--browser.gatherUsageStats=false
 
 openapi:
 	@python tools/scripts/export_openapi.py docs/openapi.json
