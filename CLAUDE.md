@@ -344,7 +344,7 @@ Default database pool settings:
 - Pool recycle: 3600 seconds
 
 ### Test Coverage
-- Current requirement: 10% (set low for initial development)
+- CI gate: 50% minimum (`--cov-fail-under=50`)
 - Production target: 85%
 - Coverage reports in htmlcov/
 
@@ -389,3 +389,24 @@ Default database pool settings:
 - `config.yaml` - Application configuration
 - `alembic.ini` - Database migration configuration
 - `src/ghost/gcp_secrets.py` - GCP Secret Manager integration (optional)
+
+## Skills
+
+Context-specific skill files in `.claude/skills/`:
+
+| Skill | Purpose |
+|---|---|
+| `fastapi-development.md` | FastAPI patterns, dependency injection, API response standards |
+| `database-migration.md` | Alembic migrations, schema management |
+| `observability.md` | OTEL gRPC (4317), Prometheus exporters, GGDC labels, Jaeger/PromQL |
+| `testing.md` | pytest markers, coverage gates, mocking patterns, CI structure |
+| `kubernetes.md` | Kustomize overlays, ConfigMap mapping, Skaffold, GCP auth |
+| `docker-compose-ops.md` | Service topology, networks, labels, dev vs prod differences |
+
+### OTEL Protocol Note
+Ghost Backend uses **gRPC on port 4317** for OpenTelemetry trace export.
+Do NOT use port 4318 (HTTP) — the Python SDK (`opentelemetry-exporter-otlp-proto-grpc`) defaults to gRPC.
+
+### Docker Compose Exporters
+- `postgres-exporter`: host 9187 → container 9187 (PostgreSQL metrics)
+- `redis-exporter`: host 9188 → container 9121 (Redis metrics)

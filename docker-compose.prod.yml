@@ -114,6 +114,10 @@ services:
       - postgres_backup:/backup
     networks:
       - ghost-backend-net
+    labels:
+      com.ggdc.project: "GGDC-System"
+      com.ggdc.service: "ghost-be-db"
+      com.ggdc.level: "2"
     logging:
       driver: "json-file"
       options:
@@ -161,6 +165,10 @@ services:
       - redis_backup:/backup
     networks:
       - ghost-backend-net
+    labels:
+      com.ggdc.project: "GGDC-System"
+      com.ggdc.service: "ghost-be-redis"
+      com.ggdc.level: "2"
     logging:
       driver: "json-file"
       options:

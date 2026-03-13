@@ -17,7 +17,7 @@ data:
   DB_USER: "postgres"
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
-  OTEL_EXPORTER_OTLP_ENDPOINT: ""
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://host.minikube.internal:4317"
   OTEL_SERVICE_NAME: "ghost-backend"
   OTEL_RESOURCE_ATTRIBUTES: "service.namespace=ggdc,deployment.environment=development"
   LOG_LEVEL: "INFO"
