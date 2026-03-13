@@ -146,7 +146,10 @@ health:
 dashboard:
 	@echo "Starting Streamlit dashboard on http://localhost:8502 ..."
 	@echo "Reading DB credentials from .env (DB_PASSWORD, DB_PORT, DB_NAME)"
-	@streamlit run tools/streamlit_dashboard.py \
+	@env PYTHONPATH=./src \
+	 HTTP_PROXY= HTTPS_PROXY= http_proxy= https_proxy= \
+	 NO_PROXY="*" no_proxy="*" \
+	 streamlit run tools/streamlit_dashboard.py \
 		--server.port=8502 \
 		--server.address=127.0.0.1 \
 		--server.headless=true \

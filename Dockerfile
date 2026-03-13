@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y \
 
 # Create virtual environment
 RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH" \
+    PIP_TRUSTED_HOST="pypi.org files.pythonhosted.org pypi.python.org"
 
 # Copy and install requirements
 WORKDIR /tmp
@@ -33,7 +34,8 @@ RUN groupadd -r ghost && useradd -r -g ghost -m -d /home/ghost -s /bin/bash ghos
 
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH" \
+    PIP_TRUSTED_HOST="pypi.org files.pythonhosted.org pypi.python.org"
 
 # Set working directory
 WORKDIR /app
