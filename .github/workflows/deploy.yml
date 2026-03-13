@@ -172,7 +172,7 @@ jobs:
           | python3 -c "import sys,json; d=json.load(sys.stdin); assert d.get('success') or d.get('status'), 'Smoke test failed'; print('Production healthy:', d)"
 
     - name: Notify deployment status
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       if: always()
       with:
         script: |
