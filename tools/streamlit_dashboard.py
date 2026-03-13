@@ -186,7 +186,7 @@ try:
             """,
             ttl=60,
         )
-        st.dataframe(tables, use_container_width=True)
+        st.dataframe(tables, width="stretch")
 
     with col_db2:
         st.subheader("Active Sessions")
@@ -201,7 +201,7 @@ try:
             """,
             ttl=15,
         )
-        st.dataframe(sessions, use_container_width=True)
+        st.dataframe(sessions, width="stretch")
 
 except Exception as e:
     st.warning(f"Cannot connect to database: {e}")
