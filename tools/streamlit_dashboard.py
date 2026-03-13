@@ -48,8 +48,11 @@ def _load_dotenv():
 
 _load_dotenv()
 
-DB_HOST = os.environ.get("DB_HOST", "localhost")
-DB_PORT = os.environ.get("DB_PORT", "5433")  # Host-mapped port
+# The .env file contains Docker-internal values (DB_HOST=postgres, DB_PORT=5432)
+# which don't work from the host. Use DASHBOARD_DB_* overrides, or fall back to
+# host-mapped defaults. Only DB_PASSWORD/DB_NAME/DB_USER are safe to read from .env.
+DB_HOST = os.environ.get("DASHBOARD_DB_HOST", "localhost")
+DB_PORT = os.environ.get("DASHBOARD_DB_PORT", "5433")  # Host-mapped port
 DB_NAME = os.environ.get("DB_NAME", "ghost")
 DB_USER = os.environ.get("DB_USER", "postgres")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "ghost_password")
