@@ -1,0 +1,28 @@
+# =============================================================================
+# docker-compose.ssh.yml — SSH debug access overlay for ghost-backend
+# =============================================================================
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.ssh.yml up -d
+#
+# This overlay adds SSH debug access to the backend container on port 2222.
+# It does NOT modify the production compose file.
+#
+# Prerequisites:
+#   The backend image must have openssh-server installed.
+#   If using the standard Dockerfile, add to a Dockerfile.dev:
+#     RUN apt-get update && apt-get install -y openssh-server && \
+#         mkdir /run/sshd && \
+#         echo 'root:debug' | chpasswd && \
+#         sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+#
+# Port: 2222 (registered in port-registry.yaml as optional)
+# =============================================================================
+
+services:
+  backend:
+    ports:
+      - "127.0.0.1:2222:22"
+    environment:
+      - ENABLE_SSH_DEBUG=true
+    labels:
+      com.ggdc.ssh_debug: "true"
