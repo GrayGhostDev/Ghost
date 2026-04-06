@@ -20,7 +20,7 @@ types-toml>=0.10.0
 
 # Additional code quality tools
 autopep8==2.3.1
-isort==5.13.2
+isort==8.0.1
 pylint==3.3.1
 bandit==1.7.10
 
