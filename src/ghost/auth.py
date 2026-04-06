@@ -8,6 +8,7 @@ Supports role-based access control (RBAC) and API key authentication.
 import jwt
 import bcrypt
 from datetime import datetime, timedelta, timezone
+from functools import wraps
 from typing import Optional, Dict, Any, List, Protocol, runtime_checkable
 from dataclasses import dataclass
 from enum import Enum
