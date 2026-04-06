@@ -108,7 +108,12 @@ class TestConfig:
 
 class TestConfigManagerEnv:
     def test_load_from_env_defaults(self, monkeypatch, tmp_path):
-        # Ensure no .env file interferes
+        # Ensure no .env file interferes and CI-set env vars don't pollute defaults.
+        for var in ("ENVIRONMENT", "DEBUG", "DB_HOST", "DB_PORT", "DB_NAME",
+                    "DB_USER", "DB_PASSWORD", "REDIS_HOST", "REDIS_PORT",
+                    "API_HOST", "API_PORT", "JWT_SECRET", "LOG_LEVEL",
+                    "GCP_SECRET_PROJECT"):
+            monkeypatch.delenv(var, raising=False)
         mgr = ConfigManager(config_dir=tmp_path)
         config = mgr.load_from_env()
         assert config.environment == "development"
