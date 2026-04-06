@@ -142,6 +142,9 @@ class AuthManager(LoggerMixin):
         except jwt.InvalidTokenError as e:
             self.logger.warning(f"Invalid token: {e}")
             return None
+        except KeyError as e:
+            self.logger.warning(f"Malformed token payload, missing field: {e}")
+            return None
 
     def refresh_access_token(self, refresh_token: str) -> Optional[str]:
         """Generate new access token from refresh token."""
@@ -150,12 +153,20 @@ class AuthManager(LoggerMixin):
         if not token_data or token_data.type != "refresh":
             return None
 
-        # Create a minimal user object for token generation
+        # Create a minimal user object for token generation.
+        # Guard against stale/unknown role strings from old tokens.
+        try:
+            roles = [UserRole(role) for role in token_data.roles]
+        except ValueError as e:
+            self.logger.warning(f"Unknown role in refresh token, dropping: {e}")
+            roles = [r for r in (UserRole.__members__.values())
+                     if r.value in token_data.roles]
+
         user = User(
             id=token_data.user_id,
             username=token_data.username,
             email="",  # Not stored in refresh token
-            roles=[UserRole(role) for role in token_data.roles],
+            roles=roles,
         )
 
         return self.create_access_token(user)
@@ -164,7 +175,12 @@ class AuthManager(LoggerMixin):
         self, token_data: TokenData, required_roles: List[UserRole]
     ) -> bool:
         """Check if user has required permissions."""
-        user_roles = [UserRole(role) for role in token_data.roles]
+        try:
+            user_roles = [UserRole(role) for role in token_data.roles]
+        except ValueError as e:
+            self.logger.warning(f"Unknown role string in token during permission check: {e}")
+            user_roles = [r for r in UserRole.__members__.values()
+                          if r.value in token_data.roles]
 
         # Admin has access to everything
         if UserRole.ADMIN in user_roles:
@@ -248,6 +264,9 @@ class AuthManager(LoggerMixin):
         except jwt.InvalidTokenError as e:
             self.logger.warning(f"Invalid API key: {e}")
             return None
+        except KeyError as e:
+            self.logger.warning(f"Malformed API key payload, missing field: {e}")
+            return None
 
 
 class RoleBasedAccessControl:
@@ -282,6 +301,7 @@ def require_auth(required_roles: Optional[List[UserRole]] = None):
         required_roles = [UserRole.USER]
 
     def decorator(func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
             # In a real implementation, you'd extract the token from the request
             # This is a simplified example
@@ -311,6 +331,7 @@ def require_api_key():
     """Decorator to require API key authentication."""
 
     def decorator(func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
             api_key = kwargs.get("api_key")
             if not api_key:

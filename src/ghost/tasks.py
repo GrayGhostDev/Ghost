@@ -6,13 +6,14 @@ scheduled tasks, retries, and multiple backends including native async and Celer
 """
 
 import asyncio
+import concurrent.futures
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, Callable, List, Union, Awaitable
 from dataclasses import dataclass, field
 from enum import Enum
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 import threading
 import schedule
 import queue
@@ -286,20 +287,18 @@ class TaskWorker(LoggerMixin):
             else:
                 func = task.func
             
-            # Execute with timeout if specified
+            # Execute with timeout if specified.
+            # signal.alarm is main-thread only; use a thread-based timeout instead
+            # so this works correctly from worker daemon threads.
             if task.timeout:
-                import signal
-                
-                def timeout_handler(signum, frame):
-                    raise TimeoutError(f"Task exceeded timeout of {task.timeout} seconds")
-                
-                signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(task.timeout)
-                
-                try:
-                    result.result = func(*task.args, **task.kwargs)
-                finally:
-                    signal.alarm(0)
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(func, *task.args, **task.kwargs)
+                    try:
+                        result.result = future.result(timeout=task.timeout)
+                    except concurrent.futures.TimeoutError:
+                        raise TimeoutError(
+                            f"Task exceeded timeout of {task.timeout} seconds"
+                        )
             else:
                 result.result = func(*task.args, **task.kwargs)
             
@@ -317,28 +316,32 @@ class TaskWorker(LoggerMixin):
             
             self.logger.error(f"Task {task.id} failed: {e}")
             
-            # Handle retries
-            if result.retry_count < task.max_retries:
-                result.retry_count += 1
+            # Handle retries — use metadata to track attempt count across re-queues
+            # (result.retry_count is per-invocation and always starts at 0).
+            current_retry = task.metadata.get('retry_count', 0)
+            if current_retry < task.max_retries:
+                next_retry = current_retry + 1
+                result.retry_count = next_retry
                 result.status = TaskStatus.RETRYING
                 
                 # Re-queue with delay
                 retry_task = Task(
-                    id=f"{task.id}_retry_{result.retry_count}",
+                    id=f"{task.metadata.get('original_task_id', task.id)}_retry_{next_retry}",
                     name=task.name,
                     func=task.func,
                     args=task.args,
                     kwargs=task.kwargs,
                     priority=task.priority,
-                    max_retries=task.max_retries - result.retry_count,
+                    max_retries=task.max_retries,
                     retry_delay=task.retry_delay,
                     timeout=task.timeout,
                     scheduled_at=datetime.now(timezone.utc) + timedelta(seconds=task.retry_delay),
-                    metadata={**task.metadata, 'retry_count': result.retry_count, 'original_task_id': task.id}
+                    metadata={**task.metadata, 'retry_count': next_retry,
+                               'original_task_id': task.metadata.get('original_task_id', task.id)}
                 )
                 
                 self.queue.enqueue(retry_task)
-                self.logger.info(f"Task {task.id} scheduled for retry #{result.retry_count}")
+                self.logger.info(f"Task {task.id} scheduled for retry #{next_retry}/{task.max_retries}")
         
         self.queue.set_result(result)
 
@@ -369,17 +372,22 @@ class AsyncTaskWorker(LoggerMixin):
         """Stop async worker."""
         self.running = False
         if self._task:
-            await self._task
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
         self.logger.info(f"Async worker {self.worker_id} stopped")
     
     async def _run(self):
         """Async worker main loop."""
         while self.running:
-            task = self.queue.dequeue(timeout=0.1)
+            # Run blocking queue.get() in a thread to avoid blocking the event loop.
+            task = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: self.queue.dequeue(timeout=0.1)
+            )
             if task:
                 await self._execute_task(task)
-            else:
-                await asyncio.sleep(0.1)
     
     async def _execute_task(self, task: Task):
         """Execute an async task.
@@ -484,27 +492,55 @@ class TaskScheduler(LoggerMixin):
             *args: Function arguments
             **kwargs: Function keyword arguments
         """
-        # Parse schedule string
+        # Parse schedule string.
+        # Supported formats:
+        #   "every minute" / "every minutes"
+        #   "every hour"   / "every hours"
+        #   "every day"    / "every days"
+        #   "every week"   / "every weeks"
+        #   "every 5 minutes" / "every 5 hours" / "every 5 days" / "every 5 weeks"
+        #   "daily at HH:MM"
+        _SINGULAR_TO_ATTR = {
+            "minute": "minutes", "minutes": "minutes",
+            "hour":   "hours",   "hours":   "hours",
+            "day":    "days",    "days":    "days",
+            "week":   "weeks",   "weeks":   "weeks",
+        }
         parts = schedule_str.lower().split()
         
         if parts[0] == "every":
             if len(parts) == 2:
                 # "every minute", "every hour", etc.
-                interval = parts[1].rstrip('s')
-                job = getattr(schedule.every(), interval)
-            elif len(parts) == 3 and parts[2] in ['minutes', 'hours', 'days', 'weeks']:
+                attr = _SINGULAR_TO_ATTR.get(parts[1])
+                if attr is None:
+                    raise ValueError(
+                        f"Invalid schedule string: {schedule_str!r}. "
+                        f"Supported units: minute, hour, day, week"
+                    )
+                job = getattr(schedule.every(), attr)
+            elif len(parts) == 3:
                 # "every 5 minutes", etc.
-                count = int(parts[1])
-                interval = parts[2] if parts[2].endswith('s') else parts[2] + 's'
-                job = getattr(schedule.every(count), interval)
+                attr = _SINGULAR_TO_ATTR.get(parts[2])
+                if attr is None:
+                    raise ValueError(
+                        f"Invalid schedule string: {schedule_str!r}. "
+                        f"Supported units: minute(s), hour(s), day(s), week(s)"
+                    )
+                try:
+                    count = int(parts[1])
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid interval count in schedule string: {schedule_str!r}"
+                    )
+                job = getattr(schedule.every(count), attr)
             else:
-                raise ValueError(f"Invalid schedule string: {schedule_str}")
-        elif parts[0] == "daily" and parts[1] == "at":
+                raise ValueError(f"Invalid schedule string: {schedule_str!r}")
+        elif parts[0] == "daily" and len(parts) == 3 and parts[1] == "at":
             # "daily at 10:30"
             time_str = parts[2]
             job = schedule.every().day.at(time_str)
         else:
-            raise ValueError(f"Invalid schedule string: {schedule_str}")
+            raise ValueError(f"Invalid schedule string: {schedule_str!r}")
         
         # Create task wrapper
         def task_wrapper():
@@ -570,9 +606,8 @@ class TaskManager(LoggerMixin):
         self.num_workers = num_workers
         self.num_async_workers = num_async_workers
         
-        # Thread and process pools for advanced execution
+        # Thread pool for advanced execution (process pool removed — unused).
         self.thread_pool = ThreadPoolExecutor(max_workers=num_workers)
-        self.process_pool = ProcessPoolExecutor(max_workers=2)
     
     def start(self):
         """Start task manager."""
@@ -606,9 +641,8 @@ class TaskManager(LoggerMixin):
         # Stop scheduler
         self.scheduler.stop()
         
-        # Shutdown pools
+        # Shutdown thread pool
         self.thread_pool.shutdown(wait=True)
-        self.process_pool.shutdown(wait=True)
         
         self.logger.info("Task manager stopped")
     

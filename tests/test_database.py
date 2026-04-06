@@ -630,8 +630,10 @@ class TestDatabaseManagerClose:
         mock_engine.dispose.assert_called_once()
         mock_run.assert_called_once()
 
-    def test_close_disposes_async_engine_with_loop(self, db_config):
-        """When an event loop is running, create_task is used."""
+    def test_close_warns_when_loop_is_running(self, db_config):
+        """When a running event loop is detected, close() logs a warning and does NOT
+        fire-and-forget create_task (which could be lost on shutdown).
+        Callers should use aclose() from async contexts instead."""
         mgr = DatabaseManager(config=db_config)
         mock_engine = MagicMock()
         mgr.engine = mock_engine
@@ -644,8 +646,13 @@ class TestDatabaseManagerClose:
         with patch("src.ghost.database.asyncio.get_running_loop", return_value=mock_loop):
             mgr.close()
 
+        # Sync engine must still be disposed.
         mock_engine.dispose.assert_called_once()
-        mock_loop.create_task.assert_called_once()
+        # create_task must NOT be called — it was the old fire-and-forget bug.
+        mock_loop.create_task.assert_not_called()
+        # The async engine is not disposed synchronously when a loop is running;
+        # callers are responsible for calling aclose() from their shutdown hook.
+        mock_async_engine.dispose.assert_not_called()
 
     def test_close_no_engines(self, db_config):
         """Close with no engines does not raise."""

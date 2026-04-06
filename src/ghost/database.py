@@ -67,9 +67,16 @@ class DatabaseManager(LoggerMixin):
             expire_on_commit=False,
         )
 
-        # Create async engine for async operations
-        async_url = self.config.url.replace("postgresql://", "postgresql+asyncpg://")
-        if async_url != self.config.url:  # Only if it's PostgreSQL
+        # Create async engine for async operations.
+        # Handle both "postgresql://" (standard) and "postgres://" (Heroku/Supabase shorthand).
+        _raw_url = self.config.url
+        if _raw_url.startswith("postgresql://"):
+            async_url = "postgresql+asyncpg://" + _raw_url[len("postgresql://"):]
+        elif _raw_url.startswith("postgres://"):
+            async_url = "postgresql+asyncpg://" + _raw_url[len("postgres://"):]
+        else:
+            async_url = _raw_url
+        if async_url != _raw_url:  # Only if it's PostgreSQL
             self.async_engine = create_async_engine(
                 async_url,
                 pool_size=self.config.pool_size,
@@ -174,20 +181,36 @@ class DatabaseManager(LoggerMixin):
             return False
 
     def close(self) -> None:
-        """Close database connections."""
+        """Close database connections (sync path — use aclose() from async contexts)."""
         if self.engine:
             self.engine.dispose()
             self.logger.info("Database engine disposed")
 
         if self.async_engine:
-            # Schedule async dispose in running event loop, or run synchronously
+            # Best-effort sync close: run in a new event loop if none is running.
+            # From async contexts, prefer calling aclose() with await instead.
             try:
-                loop = asyncio.get_running_loop()
-                loop.create_task(self.async_engine.dispose())
+                asyncio.get_running_loop()
+                # A loop is running — we cannot block on it here.
+                # Log a warning; callers should use aclose() from async shutdown hooks.
+                self.logger.warning(
+                    "close() called from a running async context — async engine may not be "
+                    "fully disposed. Call aclose() instead."
+                )
             except RuntimeError:
-                # No running event loop — run synchronously
+                # No running event loop — safe to run synchronously.
                 asyncio.run(self.async_engine.dispose())
             self.logger.info("Async database engine closed")
+
+    async def aclose(self) -> None:
+        """Close database connections (async-safe, awaits async engine disposal)."""
+        if self.engine:
+            self.engine.dispose()
+            self.logger.info("Database engine disposed")
+
+        if self.async_engine:
+            await self.async_engine.dispose()
+            self.logger.info("Async database engine disposed")
 
 
 class RedisManager(LoggerMixin):
@@ -225,24 +248,40 @@ class RedisManager(LoggerMixin):
 
     def set(self, key: str, value: Any, expire: Optional[int] = None) -> bool:
         """Set a key-value pair in Redis."""
-        client = self.get_client()
-        result = client.set(key, value, ex=expire)
-        return bool(result)
+        try:
+            client = self.get_client()
+            result = client.set(key, value, ex=expire)
+            return bool(result)
+        except redis.RedisError as e:
+            self.logger.error(f"Redis set failed for key '{key}': {e}")
+            return False
 
     def get(self, key: str) -> Any:
         """Get value by key from Redis."""
-        client = self.get_client()
-        return client.get(key)
+        try:
+            client = self.get_client()
+            return client.get(key)
+        except redis.RedisError as e:
+            self.logger.error(f"Redis get failed for key '{key}': {e}")
+            return None
 
     def delete(self, key: str) -> bool:
         """Delete key from Redis."""
-        client = self.get_client()
-        return bool(client.delete(key))
+        try:
+            client = self.get_client()
+            return bool(client.delete(key))
+        except redis.RedisError as e:
+            self.logger.error(f"Redis delete failed for key '{key}': {e}")
+            return False
 
     def exists(self, key: str) -> bool:
         """Check if key exists in Redis."""
-        client = self.get_client()
-        return bool(client.exists(key))
+        try:
+            client = self.get_client()
+            return bool(client.exists(key))
+        except redis.RedisError as e:
+            self.logger.error(f"Redis exists failed for key '{key}': {e}")
+            return False
 
     def health_check(self) -> bool:
         """Check Redis connection health."""

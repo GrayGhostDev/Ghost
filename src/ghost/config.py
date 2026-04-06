@@ -6,12 +6,29 @@ Supports environment variables, YAML files, and runtime configuration.
 """
 
 import json
+import logging
 import os
 import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from dotenv import load_dotenv
+
+_config_logger = logging.getLogger(__name__)
+
+
+def _get_int_env(key: str, default: int) -> int:
+    """Read an integer environment variable with a safe fallback on bad values."""
+    val = os.getenv(key)
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        _config_logger.warning(
+            "Invalid integer value for env var %s=%r — using default %d", key, val, default
+        )
+        return default
 
 
 @dataclass
@@ -226,7 +243,7 @@ class ConfigManager:
 
         # Database settings
         config.database.host = os.getenv("DB_HOST", config.database.host)
-        config.database.port = int(os.getenv("DB_PORT", config.database.port))
+        config.database.port = _get_int_env("DB_PORT", config.database.port)
         config.database.name = os.getenv("DB_NAME", config.database.name)
         config.database.user = os.getenv("DB_USER", config.database.user)
         config.database.password = os.getenv("DB_PASSWORD", config.database.password)
@@ -238,13 +255,13 @@ class ConfigManager:
 
         # Redis settings
         config.redis.host = os.getenv("REDIS_HOST", config.redis.host)
-        config.redis.port = int(os.getenv("REDIS_PORT", config.redis.port))
-        config.redis.db = int(os.getenv("REDIS_DB", config.redis.db))
+        config.redis.port = _get_int_env("REDIS_PORT", config.redis.port)
+        config.redis.db = _get_int_env("REDIS_DB", config.redis.db)
         config.redis.password = os.getenv("REDIS_PASSWORD", config.redis.password)
 
         # API settings
         config.api.host = os.getenv("API_HOST", config.api.host)
-        config.api.port = int(os.getenv("API_PORT", config.api.port))
+        config.api.port = _get_int_env("API_PORT", config.api.port)
         config.api.api_key = os.getenv("API_KEY", config.api.api_key)
         config.api.jwt_secret = os.getenv("JWT_SECRET", config.api.jwt_secret)
 
@@ -272,8 +289,12 @@ class ConfigManager:
 
                 gcp = GCPSecretManager(gcp_project)
                 gcp.overlay_config(config)
-            except Exception:
-                pass  # GCP unavailable — continue with env-var values
+            except Exception as _gcp_exc:
+                _config_logger.warning(
+                    "GCP Secret Manager overlay failed (project=%s): %s — "
+                    "continuing with env-var values",
+                    gcp_project, _gcp_exc
+                )
 
         return config
 
@@ -290,6 +311,22 @@ class ConfigManager:
         config = self._dict_to_config(data)
         return config
 
+    @staticmethod
+    def _filter_dataclass_fields(dc_class, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Return only keys from data that are valid fields of the dataclass.
+
+        Unknown keys are logged as warnings rather than raising TypeError.
+        """
+        valid = {f.name for f in fields(dc_class)}
+        filtered = {k: v for k, v in data.items() if k in valid}
+        unknown = set(data) - valid
+        if unknown:
+            _config_logger.warning(
+                "Unknown key(s) in %s config (ignored): %s",
+                dc_class.__name__, ", ".join(sorted(unknown))
+            )
+        return filtered
+
     def _dict_to_config(self, data: Dict[str, Any]) -> Config:
         """Convert dictionary to Config object."""
         config = Config()
@@ -303,32 +340,37 @@ class ConfigManager:
         # Database
         if "database" in data:
             db_data = data["database"]
-            config.database = DatabaseConfig(
-                **{k: v for k, v in db_data.items() if k != "url"}
+            known = self._filter_dataclass_fields(
+                DatabaseConfig, {k: v for k, v in db_data.items() if k != "url"}
             )
+            config.database = DatabaseConfig(**known)
             # Always apply url override last
             if "url" in db_data:
                 config.database.url = db_data["url"]
 
         # Redis
         if "redis" in data:
-            redis_data = data["redis"]
-            config.redis = RedisConfig(**redis_data)
+            config.redis = RedisConfig(
+                **self._filter_dataclass_fields(RedisConfig, data["redis"])
+            )
 
         # API
         if "api" in data:
-            api_data = data["api"]
-            config.api = APIConfig(**api_data)
+            config.api = APIConfig(
+                **self._filter_dataclass_fields(APIConfig, data["api"])
+            )
 
         # Logging
         if "logging" in data:
-            log_data = data["logging"]
-            config.logging = LoggingConfig(**log_data)
+            config.logging = LoggingConfig(
+                **self._filter_dataclass_fields(LoggingConfig, data["logging"])
+            )
 
         # External APIs
         if "external_apis" in data:
-            ext_data = data["external_apis"]
-            config.external_apis = ExternalAPIsConfig(**ext_data)
+            config.external_apis = ExternalAPIsConfig(
+                **self._filter_dataclass_fields(ExternalAPIsConfig, data["external_apis"])
+            )
 
         # Custom settings
         config.custom = data.get("custom", {})
