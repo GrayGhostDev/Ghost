@@ -35,7 +35,7 @@ pymongo==4.10.1
 redis==5.2.1
 
 # Utilities and helpers
-click==8.1.7
+click==8.3.2
 rich==13.8.1
 tqdm==4.66.5
 pydantic==2.12.5
