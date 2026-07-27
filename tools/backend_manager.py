@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from ghost import setup_logging, get_logger, get_config
 from ghost.api import get_api_manager
+from ghost.database import get_db_manager
 from scripts.frontend_detector import FrontendDetector
 from scripts.frontend_watcher import start_watcher
 
@@ -170,29 +171,40 @@ class MultiBackendManager:
         # Health check with frontend info
         @app.get("/api/v1/health/full")
         async def health_check_full():
-            return JSONResponse({
-                "status": "healthy",
-                "backend": {
-                    "name": "Ghost Backend Framework",
-                    "version": "1.0.0"
-                },
-                "frontends": {
-                    "detected": len(self.detector.detected_frontends),
-                    "applications": [
-                        {
-                            "name": fe.name,
-                            "type": fe.type,
-                            "port": fe.port,
-                            "features": fe.detected_features or []
-                        }
-                        for fe in self.detector.detected_frontends
-                    ]
-                },
-                "database": {
-                    "connected": True,  # TODO: Add actual DB health check
-                    "name": self.config.get('database', {}).get('name', 'ghost')
+            # Real DB connectivity probe (SELECT 1) via the shared DatabaseManager,
+            # rather than reporting a hardcoded "connected": True.
+            try:
+                db_connected = await get_db_manager().health_check_async()
+            except Exception as e:
+                self.logger.error(f"Database health check error: {e}")
+                db_connected = False
+
+            return JSONResponse(
+                status_code=200 if db_connected else 503,
+                content={
+                    "status": "healthy" if db_connected else "degraded",
+                    "backend": {
+                        "name": "Ghost Backend Framework",
+                        "version": "1.0.0"
+                    },
+                    "frontends": {
+                        "detected": len(self.detector.detected_frontends),
+                        "applications": [
+                            {
+                                "name": fe.name,
+                                "type": fe.type,
+                                "port": fe.port,
+                                "features": fe.detected_features or []
+                            }
+                            for fe in self.detector.detected_frontends
+                        ]
+                    },
+                    "database": {
+                        "connected": db_connected,
+                        "name": self.config.get('database', {}).get('name', 'ghost')
+                    }
                 }
-            })
+            )
     
     def run_server(self, host: str = "0.0.0.0", port: int = 8888, reload: bool = False) -> None:
         """Run the FastAPI server."""

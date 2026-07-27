@@ -1,79 +1,100 @@
+# Ghost Backend (Level 2) alert rules — ADDITIVE ONLY.
+#
+# Install target: GGDC-System/docker/monitoring/rules/ghost-backend-alerts.yml.
+# Prometheus loads /etc/prometheus/rules/*.yml (prometheus.yml:30-31); a copy
+# living only in this repo is never evaluated.
+#
+# IMPORTANT: application-alerts.yml already carries 10 ghost-backend rules in
+# groups `ghost-backend`, `ghost-backend-endpoints`, and `redis-ghost-backend`.
+# This file must not restate them — duplicate alert names fire twice and page
+# twice. Already covered there, deliberately NOT repeated here:
+#   * GhostBackendHighErrorRate / GhostBackendEndpointErrors  (5xx rate)
+#   * GhostBackendResponseTimeSlow / GhostBackendEndpointSlow (latency)
+#   * GhostBackendPoolExhausted, GhostBackendHighRequestRate
+#   * RedisDown, RedisMemoryHigh, RedisEvictions, RedisConnectionsHigh
+#
+# What was genuinely missing, and is added below: container liveness for
+# ghost-be-api, restart-loop detection, and any PostgreSQL alerting at all.
+#
+# Selector convention matches sp001-alerts.yml / dbu-alerts.yml:
+#   * app containers -> job="docker-services" + container_label_com_ggdc_*
+#     (Docker SD on label com.ggdc.scrape=true)
+#   * exporters      -> static jobs "ghost-backend-postgres" / "ghost-backend-redis"
+#     (prometheus.yml:120-143)
+# com.ggdc.project is "ghost-backend" (was "GGDC-System" until 2026-07-27).
+
 groups:
-  - name: ghost-backend
+  - name: ghost-backend-api
     rules:
-      # API is down
       - alert: GhostBackendDown
-        expr: up{job="ghost-backend"} == 0
+        expr: up{job="docker-services", container_label_com_ggdc_project="ghost-backend", container_label_com_ggdc_service="ghost-be-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          project: ghost-backend
+          level: "2"
+        annotations:
+          title: "Ghost Backend API is DOWN"
+          summary: "ghost-be-api unreachable for more than 2 minutes"
+          description: "The container is not being scraped. Check `docker compose ps` and `docker logs ghost-be-api`."
+
+      # The 2026-07-27 failure mode: ghost-be-db and ghost-be-redis came back from
+      # a Docker restart attached to no network, so the API could not resolve
+      # `postgres` and crash-looped 14 times. It was never "down" long enough for
+      # a liveness alert to fire — it was up, briefly, over and over.
+      - alert: GhostBackendRestartLoop
+        expr: >
+          changes(container_start_time_seconds{container_label_com_ggdc_service="ghost-be-api"}[15m]) > 3
+        for: 5m
+        labels:
+          severity: critical
+          project: ghost-backend
+          level: "2"
+        annotations:
+          title: "Ghost Backend API is restart-looping"
+          summary: "ghost-be-api restarted more than 3 times in 15 minutes"
+          description: >
+            Usually a dependency it cannot reach. Check `docker logs ghost-be-api`
+            for the dependency-wait output, then confirm the datastores still have
+            network endpoints — a container with an empty
+            .NetworkSettings.Networks is the signature of a failed port publish
+            after a daemon restart.
+
+  - name: ghost-backend-postgres
+    rules:
+      # No PostgreSQL alerting existed for ghost-backend before 2026-07-27.
+      - alert: GhostBackendPostgresExporterDown
+        expr: up{job="ghost-backend-postgres"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          project: ghost-backend
+          level: "2"
+        annotations:
+          title: "Ghost Backend postgres-exporter is DOWN"
+          summary: "No PostgreSQL metrics for ghost-be-db"
+          description: "Database health is unobserved. This is a blind spot, not necessarily an outage."
+
+      - alert: GhostBackendPostgresDown
+        expr: pg_up{job="ghost-backend-postgres"} == 0
         for: 1m
         labels:
           severity: critical
           project: ghost-backend
+          level: "2"
         annotations:
-          summary: "Ghost Backend API is down"
-          description: "ghost-be-api has been unreachable for more than 1 minute."
+          title: "Ghost Backend PostgreSQL is DOWN"
+          summary: "ghost-be-db unreachable from its exporter for more than 1 minute"
+          description: "The API will crash-loop on its dependency wait while this holds."
 
-      # High error rate (>5% of requests returning 5xx)
-      - alert: GhostBackendHighErrorRate
-        expr: >
-          sum(rate(ghost_http_requests_total{status=~"5.."}[5m]))
-          /
-          sum(rate(ghost_http_requests_total[5m]))
-          > 0.05
-        for: 5m
-        labels:
-          severity: warning
-          project: ghost-backend
-        annotations:
-          summary: "Ghost Backend high 5xx error rate"
-          description: "More than 5% of requests are returning 5xx for the last 5 minutes. Current: {{ $value | humanizePercentage }}"
-
-      # High latency (p95 > 2s)
-      - alert: GhostBackendHighLatency
-        expr: >
-          histogram_quantile(0.95, rate(ghost_http_request_duration_seconds_bucket[5m]))
-          > 2
-        for: 5m
-        labels:
-          severity: warning
-          project: ghost-backend
-        annotations:
-          summary: "Ghost Backend high request latency"
-          description: "p95 latency is above 2 seconds. Current: {{ $value | humanizeDuration }}"
-
-      # Redis down
-      - alert: GhostRedisDown
-        expr: redis_up{instance=~".*ghost.*"} == 0
-        for: 1m
-        labels:
-          severity: critical
-          project: ghost-backend
-        annotations:
-          summary: "Ghost Backend Redis is down"
-          description: "ghost-be-redis has been unreachable for more than 1 minute."
-
-      # Redis high memory usage (>80%)
-      - alert: GhostRedisHighMemory
-        expr: >
-          redis_memory_used_bytes{instance=~".*ghost.*"}
-          /
-          redis_memory_max_bytes{instance=~".*ghost.*"}
-          > 0.8
-        for: 5m
-        labels:
-          severity: warning
-          project: ghost-backend
-        annotations:
-          summary: "Ghost Backend Redis memory above 80%"
-          description: "Redis memory usage is {{ $value | humanizePercentage }}."
-
-      # PostgreSQL too many connections (>80 of 100 max)
       - alert: GhostPostgresTooManyConnections
-        expr: >
-          sum(pg_stat_activity_count{instance=~".*ghost.*"}) > 80
+        expr: sum(pg_stat_activity_count{job="ghost-backend-postgres"}) > 80
         for: 5m
         labels:
           severity: warning
           project: ghost-backend
+          level: "2"
         annotations:
-          summary: "Ghost Backend PostgreSQL connection count high"
-          description: "{{ $value }} active connections (max 100)."
+          title: "Ghost Backend PostgreSQL connection count high"
+          summary: "{{ $value }} active connections"
+          description: "Pool is sized 10 + 20 overflow per worker (CLAUDE.md 'Connection Pooling'); 80+ suggests a leak or too many replicas."

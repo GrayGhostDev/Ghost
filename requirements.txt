@@ -15,9 +15,14 @@ selenium==4.25.0
 # GitHub API (canonical client — PyGithub only)
 PyGithub==2.4.0
 
-# Data manipulation and analysis
-pandas==2.2.3
-numpy==1.26.4
+# Data manipulation and analysis — REMOVED 2026-07-27.
+# pandas==2.2.3 (wheels to cp313) and numpy==1.26.4 (wheels to cp312) have no
+# cp314 wheels, so under the pinned python:3.14-slim base every image build
+# compiled both from source on aarch64 — tens of minutes, and numpy 1.26
+# predates 3.13 support entirely. Neither is imported anywhere in this repo and
+# neither appears in pyproject.toml, which is what `pip install -e .` installs.
+# If data work needs them later, add pandas>=2.3 / numpy>=2.3 (cp314 wheels
+# exist) as an optional extra in pyproject.toml rather than a hard runtime pin.
 
 # Web framework — FastAPI (canonical)
 fastapi==0.135.3

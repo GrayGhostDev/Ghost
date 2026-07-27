@@ -291,3 +291,6 @@ k8s/overlays/minikube/patches/*.local.yaml
 # GCP service account keys (NEVER commit)
 *-key.json
 application_default_credentials.json
+
+# Docker secrets (init-docker-secrets.sh) — never commit
+.secrets/
