@@ -4,5 +4,5 @@ metadata:
   name: ghost-backend
   labels:
     app.kubernetes.io/part-of: ghost-backend
-    com.ggdc.project: GGDC-System
+    com.ggdc.project: ghost-backend
     com.ggdc.level: "2"

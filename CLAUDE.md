@@ -58,8 +58,8 @@ The overlay only fills empty/default fields — env vars always take precedence.
 
 ### Level 2 Relationships
 - Prometheus scrapes this service via `ggdc-shared-net` (label: `com.ggdc.scrape=true`)
-- Traefik routes `api.ghost.local` → port 8801
-- Loki collects logs via Promtail (label: `com.ggdc.project=GGDC-System`)
+- Traefik routes `api.ggdc.local` → port 8801 (renamed from `api.ghost.local` 2026-07-27 — `.ggdc.local` is the fleet domain and the only one the Traefik cert covers)
+- Loki collects logs via Alloy (label: `com.ggdc.project=ghost-backend`, changed from `GGDC-System` 2026-07-27 so these containers stop sharing a bucket with the shared L2 infra)
 - Connects to Ghost-Platform (`the-system`) in Phase 5 via `ggdc-shared-net`
 
 ### Authentication Scope

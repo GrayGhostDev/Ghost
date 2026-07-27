@@ -99,7 +99,7 @@ source <(./scripts/secrets/keychain.sh export)
 ```
 📁 Your Project/
 ├── .env.secure              ← Secure template (use this pattern)  
-├── .env.docker.template     ← Docker environment template
+├── .env.docker.example      ← Docker environment template
 ├── .env.runtime             ← Generated runtime loader (git ignored)
 ├── config.production.yaml   ← Updated with ${ENV_VAR} references
 ├── run_api.sh               ← Updated with keychain loading
@@ -139,7 +139,7 @@ docker-compose up
 
 ```bash
 # Create production environment file from template
-cp .env.docker.template .env
+cp .env.docker.example .env
 
 # Edit .env with your secure values (or use keychain references)
 # Deploy with your production Docker orchestration

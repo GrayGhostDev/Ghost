@@ -41,7 +41,7 @@ System configuration and environment templates:
 - `environments/` - Environment-specific configs
   - `.env.example` - Example environment variables
   - `.env.production.example` - Production environment template
-  - `.env.docker.template` - Docker environment template
+  - `.env.docker.example` - Docker environment template
 
 ### `/src/` - Source Code
 Main application source code:
