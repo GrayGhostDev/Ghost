@@ -53,7 +53,11 @@ environments:
     metrics:
       prometheus:
         host: "127.0.0.1"
-        port: 9090       # Metrics endpoint (internal only)
+        # 9091, NOT 9090 — host port 9090 is reserved fleet-wide for the Proxyman
+        # HTTP proxy (Business/config/port-registry.yaml). Enforced by
+        # ~/.claude/hooks/infra-quality-gates.sh, which fails any compose file
+        # binding 9090:9090. Container port stays 9090.
+        port: 9091       # Metrics endpoint (internal only)
 
   docker:
     api:
@@ -82,7 +86,7 @@ port_forwarding:
   
   # Monitoring (internal only)
   grafana: 3000      # -> 127.0.0.1:3000
-  prometheus: 9090   # -> 127.0.0.1:9090
+  prometheus: 9091   # -> 127.0.0.1:9091 (9090 reserved for Proxyman)
 
 # Security Notes:
 security:

@@ -7,6 +7,7 @@ Environment variables should be provided via docker-compose or Docker secrets.
 """
 
 import os
+import socket
 import sys
 import time
 import subprocess
@@ -15,17 +16,41 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, '/app/src')
 
-def wait_for_database(max_retries=None, retry_interval=2):
+# Retries start here and double up to this ceiling. A flat 2s interval burned
+# the whole budget in 60s and then exited, which under `restart: unless-stopped`
+# becomes an unbounded crash loop.
+BACKOFF_START = 2
+BACKOFF_MAX = 30
+
+
+def _backoff(attempt, start=BACKOFF_START, ceiling=BACKOFF_MAX):
+    """Exponential backoff for `attempt` (0-indexed), capped at `ceiling`."""
+    return min(start * (2 ** attempt), ceiling)
+
+
+def _describe_host(host):
+    """Resolve `host` so a DNS failure reads differently from a refused connection.
+
+    A detached container (no network endpoint) and a container that is merely
+    still booting both surface as 'not ready'; only the resolver tells them
+    apart, and that distinction is the whole diagnosis.
+    """
+    try:
+        return f"{host} -> {socket.gethostbyname(host)}"
+    except socket.gaierror as e:
+        return f"{host} -> DNS FAILURE ({e.strerror or e})"
+
+
+def wait_for_database(max_retries=None, retry_interval=None):
     """Wait for PostgreSQL to be ready."""
     if max_retries is None:
         max_retries = int(os.environ.get('MAX_DB_RETRIES', '30'))
     db_host = os.environ.get('DB_HOST', 'postgres')
     db_port = os.environ.get('DB_PORT', '5432')
-    db_name = os.environ.get('DB_NAME', 'ghost')
     db_user = os.environ.get('DB_USER', 'postgres')
-    
+
     print(f"🔄 Waiting for PostgreSQL at {db_host}:{db_port}...")
-    
+
     for i in range(max_retries):
         try:
             result = subprocess.run(
@@ -35,48 +60,68 @@ def wait_for_database(max_retries=None, retry_interval=2):
                 timeout=5
             )
             if result.returncode == 0:
-                print(f"✅ PostgreSQL is ready!")
+                print("✅ PostgreSQL is ready!")
                 return True
         except subprocess.TimeoutExpired:
             pass
-        
+
         if i < max_retries - 1:
-            print(f"  Attempt {i+1}/{max_retries} failed, retrying in {retry_interval}s...")
-            time.sleep(retry_interval)
-    
-    print(f"❌ PostgreSQL not available after {max_retries} attempts")
+            delay = retry_interval if retry_interval is not None else _backoff(i)
+            print(f"  Attempt {i+1}/{max_retries} failed ({_describe_host(db_host)}), "
+                  f"retrying in {delay}s...")
+            time.sleep(delay)
+
+    print(f"❌ PostgreSQL not available after {max_retries} attempts: {_describe_host(db_host)}")
     return False
 
-def wait_for_redis(max_retries=None, retry_interval=2):
+def wait_for_redis(max_retries=None, retry_interval=None):
     """Wait for Redis to be ready."""
     if max_retries is None:
         max_retries = int(os.environ.get('MAX_REDIS_RETRIES', '30'))
     redis_host = os.environ.get('REDIS_HOST', 'redis')
     redis_port = os.environ.get('REDIS_PORT', '6379')
-    
+    # Compose starts Redis with --requirepass. Connecting without the password
+    # made every PING raise AuthenticationError, which subclasses ConnectionError
+    # and so was silently swallowed as "not ready" — the container burned the
+    # full retry budget and logged a false outage against a healthy Redis.
+    redis_password = os.environ.get('REDIS_PASSWORD') or None
+
     print(f"🔄 Waiting for Redis at {redis_host}:{redis_port}...")
-    
+
     # Import here to avoid issues if redis isn't installed
     try:
         import redis
-        r = redis.Redis(host=redis_host, port=int(redis_port), socket_connect_timeout=5)
-        
-        for i in range(max_retries):
-            try:
-                if r.ping():
-                    print(f"✅ Redis is ready!")
-                    return True
-            except (redis.ConnectionError, redis.TimeoutError):
-                pass
-            
-            if i < max_retries - 1:
-                print(f"  Attempt {i+1}/{max_retries} failed, retrying in {retry_interval}s...")
-                time.sleep(retry_interval)
     except ImportError:
         print("⚠️  Redis client not installed, skipping Redis check")
         return True
-    
-    print(f"❌ Redis not available after {max_retries} attempts")
+
+    r = redis.Redis(
+        host=redis_host,
+        port=int(redis_port),
+        password=redis_password,
+        socket_connect_timeout=5,
+    )
+
+    for i in range(max_retries):
+        try:
+            if r.ping():
+                print("✅ Redis is ready!")
+                return True
+        except redis.AuthenticationError as e:
+            # Not a readiness problem — retrying cannot fix a wrong password.
+            print(f"❌ Redis authentication failed: {e}")
+            print("   Check REDIS_PASSWORD against the --requirepass in docker-compose.yml")
+            return False
+        except (redis.ConnectionError, redis.TimeoutError):
+            pass
+
+        if i < max_retries - 1:
+            delay = retry_interval if retry_interval is not None else _backoff(i)
+            print(f"  Attempt {i+1}/{max_retries} failed ({_describe_host(redis_host)}), "
+                  f"retrying in {delay}s...")
+            time.sleep(delay)
+
+    print(f"❌ Redis not available after {max_retries} attempts: {_describe_host(redis_host)}")
     return False
 
 def run_migrations():
@@ -133,21 +178,32 @@ def health():
     return 'test_app:app'
 
 def validate_environment():
-    """Validate required environment variables."""
-    required_vars = []
-    recommended_vars = ['JWT_SECRET', 'API_KEY', 'DB_PASSWORD']
-    
+    """Validate required environment variables.
+
+    Outside development the secrets are mandatory: `required_vars` used to be an
+    empty list, so a container booting with no JWT_SECRET fell through to the
+    framework's built-in default and served traffic signed with a known key.
+    """
+    environment = os.environ.get('ENVIRONMENT', 'development').lower()
+    secrets = ['JWT_SECRET', 'API_KEY', 'DB_PASSWORD']
+
+    if environment in ('development', 'dev', 'test', 'docker'):
+        required_vars, recommended_vars = [], secrets
+    else:
+        required_vars, recommended_vars = secrets, []
+
     missing_required = [var for var in required_vars if not os.environ.get(var)]
     missing_recommended = [var for var in recommended_vars if not os.environ.get(var)]
-    
+
     if missing_required:
-        print(f"❌ Missing required environment variables: {', '.join(missing_required)}")
+        print(f"❌ Missing required environment variables for ENVIRONMENT={environment}: "
+              f"{', '.join(missing_required)}")
         return False
-    
+
     if missing_recommended:
         print(f"⚠️  Missing recommended environment variables: {', '.join(missing_recommended)}")
         print("   Using default values - NOT suitable for production!")
-    
+
     return True
 
 def start_application():

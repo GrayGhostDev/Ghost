@@ -17,7 +17,7 @@ PGDATA16 := /opt/local/var/db/postgresql16/defaultdb
 
 .PHONY: db/install db/init db/start db/stop db/status db/create db/migrate-old \
        env/keychain-setup env/envrc env/dotenv-sync tools/verify-path \
-       up down logs ps build test test-integration lint format check migrate health dashboard \
+       networks up down logs ps build test test-integration lint format check migrate health dashboard \
        mk/start mk/stop mk/status mk/dashboard mk/deploy mk/delete mk/logs mk/shell mk/health mk/gcp-mount \
        sk/dev sk/run sk/build sk/delete
 
@@ -90,7 +90,14 @@ env/dotenv-sync:
 # Docker targets
 # ──────────────────────────────────────────────
 
-up:
+# docker-compose.yml declares ggdc-shared-net as `external: true`, so on a host
+# that has never run the Level 2 infra stack `up` fails with "network
+# ggdc-shared-net declared as external, but could not be found". The Level 2 root
+# Makefile guards its own targets this way (GGDC-System/Makefile:23,103).
+networks:
+	@docker network create ggdc-shared-net 2>/dev/null || true
+
+up: networks
 	@docker compose up -d
 	@echo "Ghost Backend started — http://localhost:8801/health"
 
@@ -113,13 +120,27 @@ build:
 test:
 	@python -m pytest tests/ --cov=src/ghost --cov-report=term -q
 
-test-integration:
+test-integration: networks
 	@echo "Starting Docker services for integration tests..."
 	@docker compose up -d postgres redis
-	@echo "Waiting for services..."
-	@sleep 5
-	@DB_HOST=localhost DB_PORT=5433 DB_NAME=ghost DB_USER=postgres DB_PASSWORD=ghost_password \
+	@echo "Waiting for services to report healthy..."
+	@for i in $$(seq 1 30); do \
+	   db=$$(docker inspect ghost-be-db --format '{{.State.Health.Status}}' 2>/dev/null); \
+	   rd=$$(docker inspect ghost-be-redis --format '{{.State.Health.Status}}' 2>/dev/null); \
+	   [ "$$db" = "healthy" ] && [ "$$rd" = "healthy" ] && break; \
+	   sleep 2; \
+	 done; \
+	 [ "$$db" = "healthy" ] && [ "$$rd" = "healthy" ] || \
+	   { echo "Services did not become healthy (db=$$db redis=$$rd)"; exit 1; }
+	@# Credentials come from .env, the same file docker compose interpolates when
+	# it starts these containers. Hardcoding ghost_password here meant the target
+	# authenticated with a value the volume was never initialized with, so
+	# integration tests failed on connection rather than on assertions.
+	set -a; [ -f .env ] && . ./.env; set +a; \
+	 DB_HOST=localhost DB_PORT=5433 DB_NAME=ghost DB_USER=postgres \
+	 DB_PASSWORD=$${DB_PASSWORD:-ghost_password} \
 	 REDIS_HOST=localhost REDIS_PORT=6380 \
+	 REDIS_PASSWORD=$${REDIS_PASSWORD:-changeme} \
 	 python -m pytest tests/ -m "integration" --cov=src/ghost --cov-report=term -q; \
 	 EXIT_CODE=$$?; \
 	 echo "Stopping Docker services..."; \

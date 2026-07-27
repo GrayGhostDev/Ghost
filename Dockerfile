@@ -49,6 +49,9 @@ COPY --chown=ghost:ghost src/ ./src/
 # Copy other necessary files
 COPY --chown=ghost:ghost examples/ ./examples/
 COPY --chown=ghost:ghost tools/docker_entrypoint.py ./tools/
+# Secrets shim — runs first, exports /run/secrets/* into the environment, execs CMD.
+COPY --chown=ghost:ghost tools/docker-entrypoint.sh ./tools/
+RUN chmod +x ./tools/docker-entrypoint.sh
 COPY --chown=ghost:ghost migrations/ ./migrations/
 COPY --chown=ghost:ghost alembic.ini ./
 
@@ -77,5 +80,6 @@ EXPOSE 8801
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8801/health || exit 1
 
-# Default command
+# Secrets are materialized by the shim, then the Python entrypoint takes over.
+ENTRYPOINT ["/app/tools/docker-entrypoint.sh"]
 CMD ["python", "tools/docker_entrypoint.py"]

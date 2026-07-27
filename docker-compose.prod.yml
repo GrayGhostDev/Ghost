@@ -63,7 +63,7 @@ services:
       traefik.http.routers.ghost-backend.entrypoints: "websecure"
       traefik.http.services.ghost-backend.loadbalancer.server.port: "8801"
       traefik.docker.network: "ggdc-shared-net"
-      com.ggdc.project: "GGDC-System"
+      com.ggdc.project: "ghost-backend"
       com.ggdc.service: "ghost-be-api"
       com.ggdc.level: "2"
       com.ggdc.scrape: "true"
@@ -115,7 +115,7 @@ services:
     networks:
       - ghost-backend-net
     labels:
-      com.ggdc.project: "GGDC-System"
+      com.ggdc.project: "ghost-backend"
       com.ggdc.service: "ghost-be-db"
       com.ggdc.level: "2"
     logging:
@@ -166,7 +166,7 @@ services:
     networks:
       - ghost-backend-net
     labels:
-      com.ggdc.project: "GGDC-System"
+      com.ggdc.project: "ghost-backend"
       com.ggdc.service: "ghost-be-redis"
       com.ggdc.level: "2"
     logging:
