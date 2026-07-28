@@ -48,22 +48,72 @@ def wait_for_database(max_retries=None, retry_interval=None):
     db_host = os.environ.get('DB_HOST', 'postgres')
     db_port = os.environ.get('DB_PORT', '5432')
     db_user = os.environ.get('DB_USER', 'postgres')
+    db_name = os.environ.get('DB_NAME', 'postgres')
+    db_password = os.environ.get('DB_PASSWORD') or None
 
     print(f"🔄 Waiting for PostgreSQL at {db_host}:{db_port}...")
 
+    # psycopg, not a `pg_isready` subprocess. pg_isready ships in
+    # postgresql-client, whose dependency chain pulls perl, libperl and
+    # perl-modules into the RUNTIME image — 12 CRITICAL CVEs with no upstream
+    # fix, carried solely for this one readiness probe. psycopg is already a
+    # hard dependency of the application, so this costs nothing to import.
+    try:
+        import psycopg
+    except ImportError:
+        print("⚠️  psycopg not installed, skipping PostgreSQL check")
+        return True
+
+    # Transient conditions where the server IS listening but is not yet willing
+    # to serve. These are the only psycopg connect failures worth retrying;
+    # everything else the server says is a configuration fault.
+    TRANSIENT = ('starting up', 'shutting down', 'in recovery', 'too many clients')
+
     for i in range(max_retries):
+        # Transport probe first. psycopg cannot tell these two apart for us:
+        # libpq reports connection-time failures as a bare OperationalError with
+        # sqlstate=None whether the server refused the socket or rejected the
+        # password, so branching on the exception alone would treat a wrong
+        # password as "not ready yet" and burn the whole retry budget before
+        # failing — the Redis probe below was fixed for exactly that bug.
+        # A successful TCP connect means the server is up, so any failure after
+        # this point is the server answering, not the network.
         try:
-            result = subprocess.run(
-                ['pg_isready', '-h', db_host, '-p', db_port, '-U', db_user],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            if result.returncode == 0:
+            with socket.create_connection((db_host, int(db_port)), timeout=5):
+                pass
+        except OSError:
+            # Refused, timed out, or DNS failure — nothing is listening yet.
+            if i < max_retries - 1:
+                delay = retry_interval if retry_interval is not None else _backoff(i)
+                print(f"  Attempt {i+1}/{max_retries} failed ({_describe_host(db_host)}), "
+                      f"retrying in {delay}s...")
+                time.sleep(delay)
+            continue
+
+        try:
+            with psycopg.connect(
+                host=db_host,
+                port=int(db_port),
+                user=db_user,
+                password=db_password,
+                dbname=db_name,
+                connect_timeout=5,
+            ):
                 print("✅ PostgreSQL is ready!")
                 return True
-        except subprocess.TimeoutExpired:
-            pass
+        except psycopg.OperationalError as e:
+            message = str(e)
+            if not any(t in message for t in TRANSIENT):
+                # The server is listening and rejected us on the merits: bad
+                # password, missing role, missing database. Retrying cannot fix
+                # any of them, and doing so would log a false outage against a
+                # healthy server.
+                print(f"❌ PostgreSQL rejected the connection: {message.strip()}")
+                print(f"   Server is up at {_describe_host(db_host)}:{db_port}; "
+                      f"check DB_USER / DB_PASSWORD / DB_NAME (currently "
+                      f"user={db_user!r} dbname={db_name!r}).")
+                return False
+            # Listening but still coming up — retry.
 
         if i < max_retries - 1:
             delay = retry_interval if retry_interval is not None else _backoff(i)

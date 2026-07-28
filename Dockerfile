@@ -23,9 +23,17 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 # Stage 2: Runtime
 FROM python:3.14-slim
 
-# Install runtime dependencies only
+# Install runtime dependencies only.
+#
+# NO postgresql-client here. It was present for a single `pg_isready` call in
+# tools/docker_entrypoint.py, and its dependency chain drags perl, libperl5.40
+# and perl-modules-5.40 into the runtime image — 12 CRITICAL CVEs that Debian
+# has no fix for, so they cannot be cleared by rebuilding or by bumping the
+# base. The entrypoint now probes with psycopg, which is already a hard
+# application dependency. Only perl-base remains, and that is Debian-essential.
+#
+# curl stays: the HEALTHCHECK below and docker-compose.ci.yml both probe with it.
 RUN apt-get update && apt-get install -y \
-    postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

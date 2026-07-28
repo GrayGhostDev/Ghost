@@ -29,9 +29,13 @@ RUN pip install --no-cache-dir gunicorn
 # Stage 2: Runtime (minimal)
 FROM python:3.14-slim
 
-# Install only essential runtime dependencies
+# Install only essential runtime dependencies.
+#
+# NO postgresql-client — see the same note in ./Dockerfile. It existed for one
+# `pg_isready` call, and pulled perl/libperl5.40/perl-modules-5.40 (12 CRITICAL
+# CVEs, no upstream fix) into the runtime image. The entrypoint now probes with
+# psycopg. curl stays for the HEALTHCHECK.
 RUN apt-get update && apt-get install -y \
-    postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean \
