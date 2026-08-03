@@ -45,7 +45,7 @@ jobs:
         git log --oneline --since="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '1 month ago')"..HEAD >> RELEASE_NOTES.md || echo "Initial release" >> RELEASE_NOTES.md
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         body_path: RELEASE_NOTES.md
         files: dist/*
