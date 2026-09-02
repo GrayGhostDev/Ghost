@@ -12,7 +12,7 @@ spec:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/adc.json
             - name: GCP_SECRET_PROJECT
-              value: sylvan-flight-476922-m7
+              value: grayghostdata-system
           volumeMounts:
             - name: gcp-adc
               mountPath: /var/secrets/google

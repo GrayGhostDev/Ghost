@@ -70,4 +70,4 @@ Uses **psycopg v3** (not psycopg2). `migrations/env.py` converts `postgresql://`
 | Minikube | ADC mount + K8s Secrets |
 | Cloud Run | GCP Secret Manager native |
 
-Set `GCP_SECRET_PROJECT=sylvan-flight-476922-m7` for Secret Manager overlay.
+Set `GCP_SECRET_PROJECT=grayghostdata-system` for Secret Manager overlay.

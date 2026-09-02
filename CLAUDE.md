@@ -53,7 +53,7 @@ Port forwarding reuses the same host ports as Docker Compose:
 | GKE (future) | External Secrets Operator → GCP SM | Workload Identity |
 | Cloud Run (future) | GCP SM native | Service account |
 
-Set `GCP_SECRET_PROJECT=sylvan-flight-476922-m7` to enable GCP Secret Manager overlay in `config.py`.
+Set `GCP_SECRET_PROJECT=grayghostdata-system` to enable GCP Secret Manager overlay in `config.py`.
 The overlay only fills empty/default fields — env vars always take precedence.
 
 ### Level 2 Relationships
