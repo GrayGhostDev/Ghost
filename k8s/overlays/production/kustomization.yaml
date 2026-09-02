@@ -13,5 +13,5 @@ namespace: ghost-backend
 # Production images are pushed to Artifact Registry
 images:
   - name: ghost-backend
-    newName: us-east1-docker.pkg.dev/sylvan-flight-476922-m7/ggdc-images/ghost-backend
+    newName: us-east1-docker.pkg.dev/grayghostdata-system/ggdc-images/ghost-backend
     newTag: latest

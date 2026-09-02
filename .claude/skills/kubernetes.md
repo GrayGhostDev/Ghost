@@ -66,7 +66,7 @@ make mk/gcp-mount   # Mount GCP ADC into minikube (background process)
 ```
 
 Mounts `~/.config/gcloud/application_default_credentials.json` into the minikube VM.
-Required for GCP Secret Manager overlay (`GCP_SECRET_PROJECT=sylvan-flight-476922-m7`).
+Required for GCP Secret Manager overlay (`GCP_SECRET_PROJECT=grayghostdata-system`).
 
 ## Common Operations
 

@@ -42,7 +42,7 @@ profiles:
   - name: production
     build:
       artifacts:
-        - image: us-east1-docker.pkg.dev/sylvan-flight-476922-m7/ggdc-images/ghost-backend
+        - image: us-east1-docker.pkg.dev/grayghostdata-system/ggdc-images/ghost-backend
           docker:
             dockerfile: Dockerfile.prod
     deploy:

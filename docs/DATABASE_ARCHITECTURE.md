@@ -29,7 +29,7 @@ App (uvicorn) ──→ localhost:5432 ──→ MacPorts PostgreSQL 16
 
 - Install: `make db/install && make db/init && make db/start && make db/create`
 - Credentials stored in macOS Keychain (see `make env/keychain-setup`)
-- `DATABASE_URL=postgresql://ghost:password@localhost:5432/ghost_db`
+- `DATABASE_URL=postgresql://ghost:password@localhost:5432/ghost_db`  <!-- pragma: allowlist secret -->
 
 ### Docker Compose
 
@@ -41,8 +41,8 @@ ghost-be-api ──→ postgres:5432 ──→ ghost-be-db (container)
                            host: 127.0.0.1:5433 (loopback only)
 ```
 
-- Internal: `postgresql://postgres:ghost_password@postgres:5432/ghost`
-- From host: `postgresql://postgres:ghost_password@localhost:5433/ghost`
+- Internal: `postgresql://postgres:ghost_password@postgres:5432/ghost`  <!-- pragma: allowlist secret -->
+- From host: `postgresql://postgres:ghost_password@localhost:5433/ghost`  <!-- pragma: allowlist secret -->
 - Redis: internal `redis:6379`, host `127.0.0.1:6380`
 
 ### Minikube (Kubernetes)
@@ -69,7 +69,7 @@ Cloud Run ──→ Cloud SQL (via unix socket or private IP)
          GCP Secret Manager provides DATABASE_URL
 ```
 
-- Set `GCP_SECRET_PROJECT=sylvan-flight-476922-m7` to enable secret overlay
+- Set `GCP_SECRET_PROJECT=grayghostdata-system` to enable secret overlay
 - `config.py` fetches secrets from GCP SM only for fields that are empty/default
 - Env vars always take precedence over GCP SM values
 
@@ -131,7 +131,7 @@ docker compose --profile gcp up -d cloud-sql-proxy
 # Proxy listens on localhost:5453
 
 # 2. Set DATABASE_URL to point at Cloud SQL via proxy
-export DATABASE_URL="postgresql://postgres:<password>@localhost:5453/ghost"
+export DATABASE_URL="postgresql://postgres:<password>@localhost:5453/ghost"  <!-- pragma: allowlist secret -->
 
 # 3. Check current migration state
 alembic current

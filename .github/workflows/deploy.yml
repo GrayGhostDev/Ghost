@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REGISTRY: us-east1-docker.pkg.dev/sylvan-flight-476922-m7/ggdc-docker
+  REGISTRY: us-east1-docker.pkg.dev/grayghostdata-system/ggdc-docker
   IMAGE_NAME: ghost-backend
   GCP_REGION: us-east1
 
